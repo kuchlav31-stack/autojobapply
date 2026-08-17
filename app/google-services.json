@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "282831003559",
+    "project_id": "autojobapply-a57ca",
+    "storage_bucket": "autojobapply-a57ca.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:282831003559:android:d11a9fc5c6105ebfec2082",
+        "android_client_info": {
+          "package_name": "com.dark.autojobapply"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "282831003559-ska1c6celt9l8t0tfnnbn5nl68q0r78e.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.dark.autojobapply",
+            "certificate_hash": "5a19538fa38cfd1e627243d77a129a8e944a2301"
+          }
+        },
+        {
+          "client_id": "282831003559-q6jenbh0gmhplp7m55reum0ludud63ed.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCe12CWGnsOaEh2GmbE2WWrNZVsYhvoz3w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "282831003559-q6jenbh0gmhplp7m55reum0ludud63ed.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
