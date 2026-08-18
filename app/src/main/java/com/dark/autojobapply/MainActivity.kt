@@ -16,8 +16,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
-import com.dark.autojobapply.ui.theme.AutojobapplyTheme
-import com.dark.autojobapply.ui.theme.BackgroundDark
+import com.dark.jobai.ui.theme.BackgroundDark
+import com.dark.jobai.ui.theme.JobAITheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            AutojobapplyTheme {
+            JobAITheme() {
                 Scaffold(
                     modifier = Modifier
                         .fillMaxSize()

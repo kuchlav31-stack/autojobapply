@@ -64,12 +64,12 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
 
     implementation("androidx.compose.material:material-icons-extended")
-
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
     // Navigation
     implementation("androidx.navigation:navigation-compose:2.9.3")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
-
+    implementation("com.razorpay:checkout:1.6.33")
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("com.itextpdf:itext7-core:9.7.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")

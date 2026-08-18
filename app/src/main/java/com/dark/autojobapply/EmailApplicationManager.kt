@@ -1,21 +1,18 @@
 package com.dark.autojobapply
 
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
-import android.widget.Toast
+import android.util.Log
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 
-/**
- * Manages email application system
- * Handles:
- * 1. Email template storage (one-time setup)
- * 2. Auto-send without editing
- * 3. Edit before sending
- */
 class EmailApplicationManager(private val context: Context) {
 
     private val sharedPrefs: SharedPreferences = context.getSharedPreferences(
@@ -28,241 +25,200 @@ class EmailApplicationManager(private val context: Context) {
 
     companion object {
         const val KEY_TEMPLATE_SAVED = "template_saved"
-        const val KEY_EMAIL_TEMPLATE = "email_template"
         const val KEY_AUTO_SEND = "auto_send_enabled"
-        const val KEY_SUBJECT_TEMPLATE = "subject_template"
+
+        // Cloud Function URLs
+        const val SEND_EMAIL_URL = "https://us-central1-autojobapply-a57ca.cloudfunctions.net/sendJobApplicationEmail"
+        const val SAVE_TEMPLATE_URL = "https://us-central1-autojobapply-a57ca.cloudfunctions.net/saveEmailTemplate"
     }
 
-    /**
-     * Check if email template is saved
-     */
     fun isTemplateSaved(): Boolean {
         return sharedPrefs.getBoolean(KEY_TEMPLATE_SAVED, false)
     }
 
-    /**
-     * Check if auto-send is enabled
-     */
     fun isAutoSendEnabled(): Boolean {
         return sharedPrefs.getBoolean(KEY_AUTO_SEND, false)
     }
 
-    /**
-     * Save email template (one-time setup)
-     */
-    fun saveEmailTemplate(
-        subject: String,
-        body: String,
-        autoSend: Boolean
-    ) {
+    fun saveEmailTemplateLocally(subject: String, body: String, autoSend: Boolean) {
         sharedPrefs.edit()
             .putBoolean(KEY_TEMPLATE_SAVED, true)
-            .putString(KEY_SUBJECT_TEMPLATE, subject)
-            .putString(KEY_EMAIL_TEMPLATE, body)
+            .putString("subject_template", subject)
+            .putString("body_template", body)
             .putBoolean(KEY_AUTO_SEND, autoSend)
             .apply()
+        Log.d("EmailManager", "✅ Template saved locally")
     }
 
     /**
-     * Get saved email template
+     * Save template - Local + Server (Firestore via Cloud Function)
      */
-    fun getEmailTemplate(): Pair<String, String> {
-        val subject = sharedPrefs.getString(KEY_SUBJECT_TEMPLATE, "") ?: ""
-        val body = sharedPrefs.getString(KEY_EMAIL_TEMPLATE, "") ?: ""
-        return Pair(subject, body)
-    }
+    suspend fun saveTemplateToServer(
+        subjectTemplate: String,
+        bodyTemplate: String,
+        autoSend: Boolean,
+        onSuccess: () -> Unit,
+        onError: (String) -> Unit
+    ) {
+        withContext(Dispatchers.IO) {
+            try {
+                val userId = auth.currentUser?.uid
 
-    /**
-     * Enable/disable auto-send
-     */
-    fun setAutoSend(enabled: Boolean) {
-        sharedPrefs.edit()
-            .putBoolean(KEY_AUTO_SEND, enabled)
-            .apply()
-    }
-
-    /**
-     * Get default email template with user data filled
-     */
-    suspend fun getDefaultTemplateWithUserData(): Pair<String, String> {
-        val userId = auth.currentUser?.uid ?: return Pair("", "")
-
-        return try {
-            val doc = db.collection("users").document(userId).get().await()
-
-            if (doc.exists()) {
-                val name = doc.getString("fullName") ?: ""
-                val headline = doc.getString("headline") ?: ""
-                val skills = doc.get("skills") as? List<String> ?: emptyList()
-                val experience = doc.getString("experienceYears") ?: ""
-                val location = doc.getString("location") ?: ""
-                val linkedin = doc.getString("linkedinUrl") ?: ""
-                val portfolio = doc.getString("portfolioUrl") ?: ""
-                val resumeUrl = doc.getString("resumeUrl") ?: ""
-
-                val subject = "Application for the position"
-
-                val body = buildString {
-                    append("Dear Hiring Manager,\n\n")
-                    append("I hope this email finds you well.\n\n")
-
-                    if (name.isNotEmpty()) {
-                        append("My name is $name")
-                    }
-
-                    if (headline.isNotEmpty()) {
-                        append(", and I am a $headline")
-                    }
-                    append(".\n\n")
-
-                    append("I am writing to express my interest in this position. ")
-
-                    if (experience.isNotEmpty()) {
-                        append("I have $experience years of professional experience. ")
-                    }
-
-                    if (skills.isNotEmpty()) {
-                        append("\n\nMy key skills include: ${skills.take(8).joinToString(", ")}.")
-                    }
-
-                    if (location.isNotEmpty()) {
-                        append("\n\nLocation: $location")
-                    }
-
-                    if (resumeUrl.isNotEmpty()) {
-                        append("\nResume: $resumeUrl")
-                    }
-
-                    if (linkedin.isNotEmpty()) {
-                        append("\nLinkedIn: $linkedin")
-                    }
-
-                    if (portfolio.isNotEmpty()) {
-                        append("\nPortfolio: $portfolio")
-                    }
-
-                    append("\n\nI am excited about the opportunity to contribute to your team and would welcome the chance to discuss my qualifications further.\n\n")
-                    append("Best regards,\n")
-                    append(name.ifEmpty { "Applicant" })
+                if (userId == null) {
+                    withContext(Dispatchers.Main) { onError("User not authenticated") }
+                    return@withContext
                 }
 
-                Pair(subject, body)
-            } else {
-                getDefaultTemplate()
+                // पहले LOCAL save करो - हमेशा success
+                saveEmailTemplateLocally(subjectTemplate, bodyTemplate, autoSend)
+
+                // फिर Firestore में DIRECT save करो (Cloud Function के बिना)
+                try {
+                    db.collection("users").document(userId).set(
+                        mapOf(
+                            "emailSubjectTemplate" to subjectTemplate,
+                            "emailBodyTemplate" to bodyTemplate,
+                            "emailAutoSend" to autoSend
+                        ),
+                        com.google.firebase.firestore.SetOptions.merge()
+                    ).await()
+
+                    Log.d("EmailManager", "✅ Template saved to Firestore directly")
+                } catch (e: Exception) {
+                    Log.w("EmailManager", "⚠️ Firestore save failed, but local saved")
+                }
+
+                withContext(Dispatchers.Main) {
+                    onSuccess()
+                }
+
+            } catch (e: Exception) {
+                Log.e("EmailManager", "Save error", e)
+                withContext(Dispatchers.Main) {
+                    onError(e.localizedMessage ?: "Failed to save")
+                }
             }
-        } catch (e: Exception) {
-            getDefaultTemplate()
         }
     }
 
     /**
-     * Simple default template
+     * Send email via Cloud Function
      */
-    private fun getDefaultTemplate(): Pair<String, String> {
-        val subject = "Job Application"
-        val body = "Dear Hiring Manager,\n\nI am interested in this position. Please find my resume attached.\n\nBest regards"
-        return Pair(subject, body)
-    }
-
-    /**
-     * Send email directly (one-click apply)
-     */
-    fun sendEmailDirectly(
+    suspend fun sendEmailDirectly(
         toEmail: String,
         jobTitle: String,
         companyName: String,
-        onSuccess: () -> Unit,
+        onSuccess: (String) -> Unit,
         onError: (String) -> Unit
     ) {
-        // Get template
-        val (savedSubject, savedBody) = getEmailTemplate()
+        withContext(Dispatchers.IO) {
+            try {
+                val userId = auth.currentUser?.uid
 
-        // Replace placeholders
-        val subject = savedSubject
-            .replace("{job_title}", jobTitle)
-            .replace("{company}", companyName)
+                if (userId == null) {
+                    withContext(Dispatchers.Main) { onError("User not authenticated") }
+                    return@withContext
+                }
 
-        val body = savedBody
-            .replace("{job_title}", jobTitle)
-            .replace("{company}", companyName)
+                // Check user document exists
+                val userDoc = try {
+                    db.collection("users").document(userId).get().await()
+                } catch (e: Exception) {
+                    null
+                }
 
-        sendEmail(
-            toEmail = toEmail,
-            subject = subject,
-            body = body,
-            onSuccess = onSuccess,
-            onError = onError
-        )
+                if (userDoc == null || !userDoc.exists()) {
+                    Log.e("EmailManager", "User document not found in Firestore")
+                    withContext(Dispatchers.Main) {
+                        onError("❌ Profile not found. Please complete your profile first.")
+                    }
+                    return@withContext
+                }
+
+                Log.d("EmailManager", "📧 Sending email...")
+                Log.d("EmailManager", "To: $toEmail")
+                Log.d("EmailManager", "Job: $jobTitle at $companyName")
+                Log.d("EmailManager", "User: $userId")
+
+                val jsonData = JSONObject().apply {
+                    put("toEmail", toEmail)
+                    put("jobTitle", jobTitle)
+                    put("companyName", companyName)
+                    put("userId", userId)
+                }
+
+                val result = makeHttpRequest(SEND_EMAIL_URL, jsonData.toString())
+
+                if (result.first) {
+                    Log.d("EmailManager", "✅ Email sent successfully")
+                    withContext(Dispatchers.Main) {
+                        onSuccess("✅ Email sent successfully!")
+                    }
+                } else {
+                    Log.e("EmailManager", "❌ Server error: ${result.second}")
+                    withContext(Dispatchers.Main) {
+                        onError("❌ Failed to send email. Please try again.")
+                    }
+                }
+
+            } catch (e: Exception) {
+                Log.e("EmailManager", "Exception", e)
+                withContext(Dispatchers.Main) {
+                    onError("❌ ${e.localizedMessage ?: "Failed"}")
+                }
+            }
+        }
     }
 
     /**
-     * Send email with custom content
+     * HTTP POST Request
      */
-    fun sendEmail(
-        toEmail: String,
-        subject: String,
-        body: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(toEmail))
-                putExtra(Intent.EXTRA_SUBJECT, subject)
-                putExtra(Intent.EXTRA_TEXT, body)
+    private fun makeHttpRequest(urlString: String, jsonBody: String): Pair<Boolean, String> {
+        var connection: HttpURLConnection? = null
+        return try {
+            val url = URL(urlString)
+            connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.setRequestProperty("Accept", "application/json")
+            connection.doOutput = true
+            connection.connectTimeout = 30000
+            connection.readTimeout = 30000
+
+            Log.d("EmailManager", "URL: $urlString")
+            Log.d("EmailManager", "Body: $jsonBody")
+
+            OutputStreamWriter(connection.outputStream).use { writer ->
+                writer.write(jsonBody)
+                writer.flush()
             }
 
-            context.startActivity(Intent.createChooser(intent, "Send Email"))
-            onSuccess()
-        } catch (e: Exception) {
-            onError(e.localizedMessage ?: "Failed to open email client")
-        }
-    }
+            val responseCode = connection.responseCode
+            Log.d("EmailManager", "Response Code: $responseCode")
 
-    /**
-     * Open email with editable content (user can modify before sending)
-     */
-    fun openEmailWithEdit(
-        toEmail: String,
-        jobTitle: String,
-        companyName: String,
-        onSuccess: () -> Unit,
-        onError: (String) -> Unit
-    ) {
-        // Get template and replace placeholders
-        val (savedSubject, savedBody) = getEmailTemplate()
+            when (responseCode) {
+                in 200..299 -> {
+                    val response = connection.inputStream.bufferedReader().readText()
+                    Log.d("EmailManager", "Response: $response")
+                    Pair(true, response)
+                }
+                else -> {
+                    val error = try {
+                        connection.errorStream?.bufferedReader()?.readText()
+                    } catch (e: Exception) {
+                        null
+                    } ?: "HTTP $responseCode"
 
-        val subject = savedSubject
-            .replace("{job_title}", jobTitle)
-            .replace("{company}", companyName)
-
-        val body = savedBody
-            .replace("{job_title}", jobTitle)
-            .replace("{company}", companyName)
-
-        try {
-            val intent = Intent(Intent.ACTION_SENDTO).apply {
-                data = Uri.parse("mailto:")
-                putExtra(Intent.EXTRA_EMAIL, arrayOf(toEmail))
-                putExtra(Intent.EXTRA_SUBJECT, subject)
-                putExtra(Intent.EXTRA_TEXT, body)
+                    Log.e("EmailManager", "Error: $error")
+                    Pair(false, error)
+                }
             }
 
-            context.startActivity(Intent.createChooser(intent, "Edit & Send Email"))
-            onSuccess()
         } catch (e: Exception) {
-            onError(e.localizedMessage ?: "Failed to open email client")
+            Log.e("EmailManager", "Network error: ${e.localizedMessage}", e)
+            Pair(false, e.localizedMessage ?: "Network error")
+        } finally {
+            connection?.disconnect()
         }
-    }
-
-    /**
-     * Check if user has email app installed
-     */
-    fun hasEmailApp(): Boolean {
-        val intent = Intent(Intent.ACTION_SENDTO).apply {
-            data = Uri.parse("mailto:")
-        }
-        return intent.resolveActivity(context.packageManager) != null
     }
 }

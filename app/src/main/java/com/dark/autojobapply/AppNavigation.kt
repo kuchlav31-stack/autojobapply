@@ -1,5 +1,4 @@
 package com.dark.autojobapply
-
 import android.content.Intent
 import android.widget.Toast
 import androidx.activity.result.ActivityResultLauncher
@@ -17,7 +16,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
-
 object AppRoutes {
     const val SPLASH = "splash_screen"
     const val LOGIN = "login_screen"
@@ -25,9 +23,11 @@ object AppRoutes {
     const val PROFILE_SETUP = "profile_setup"
     const val HOME = "home_screen"
     const val EMAIL_TEMPLATE = "email_template"
+    const val APPLICATIONS = "applications"
+    const val USER_PROFILE = "user_profile"
+    const val MAIN = "main_screen"
 
 }
-
 @Composable
 fun AppNavigation(
     navController: NavHostController,
@@ -126,7 +126,24 @@ fun AppNavigation(
                 }
             )
         }
+        composable(AppRoutes.APPLICATIONS) {
+            ApplicationDashboard(
+                onBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
 
+        composable(AppRoutes.USER_PROFILE) {
+            UserProfileScreen(
+                onBack = { navController.popBackStack() },
+                onLogout = {
+                    navController.navigate(AppRoutes.LOGIN) {
+                        popUpTo(AppRoutes.HOME) { inclusive = true }
+                    }
+                }
+            )
+        }
 // Update HOME composable
         composable(AppRoutes.HOME) {
             MainHomeScreen(

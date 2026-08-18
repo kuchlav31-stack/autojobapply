@@ -11,6 +11,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
@@ -28,16 +30,22 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.dark.autojobapply.ui.theme.*
+import com.dark.jobai.ui.theme.BackgroundDark
+import com.dark.jobai.ui.theme.BorderGray
+import com.dark.jobai.ui.theme.ErrorRed
+import com.dark.jobai.ui.theme.PrimaryGreen
+import com.dark.jobai.ui.theme.TextGray
+import com.dark.jobai.ui.theme.TextWhite
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 // ====================================================================
-// MAIN HOME SCREEN - FINAL COMPLETE VERSION
+// MAIN HOME SCREEN - FINAL VERSION WITH 4 BOTTOM NAVIGATION TABS
 // ====================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,8 +59,9 @@ fun MainHomeScreen(
     val auth = FirebaseAuth.getInstance()
     val db = FirebaseFirestore.getInstance()
     val emailManager = remember { EmailApplicationManager(context) }
+    val scope = rememberCoroutineScope()
 
-    // Navigation state
+    // Navigation state - 4 tabs
     var selectedTab by remember { mutableStateOf(0) }
 
     // Job list state
@@ -63,6 +72,10 @@ fun MainHomeScreen(
     var workTypeFilter by remember { mutableStateOf("All") }
     var showEmailOnly by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
+
+    // Email sending state
+    var isEmailSending by remember { mutableStateOf(false) }
+    var selectedJobForDetail by remember { mutableStateOf<Job?>(null) }
 
     // Fetch jobs from Firestore
     LaunchedEffect(Unit) {
@@ -82,12 +95,9 @@ fun MainHomeScreen(
                         try {
                             val job = Job.fromDocument(doc)
                             jobList.add(job)
-                        } catch (e: Exception) {
-                            // Skip malformed documents
-                        }
+                        } catch (e: Exception) {}
                     }
 
-                    // Sort: Email jobs first, then latest
                     jobList.sortWith(
                         compareByDescending<Job> { it.hasEmail }
                             .thenByDescending { it.postedAt }
@@ -111,7 +121,6 @@ fun MainHomeScreen(
                     val profileCompleted = doc.getBoolean("profileCompleted") ?: false
 
                     if (profileCompleted) {
-                        // Profile complete - Open apply URL
                         if (job.applyUrl.isNotBlank()) {
                             try {
                                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(job.applyUrl))
@@ -119,61 +128,38 @@ fun MainHomeScreen(
                             } catch (e: Exception) {
                                 Toast.makeText(context, "Unable to open link", Toast.LENGTH_SHORT).show()
                             }
-                        } else {
-                            Toast.makeText(context, "Apply link not available", Toast.LENGTH_SHORT).show()
                         }
                     } else {
-                        // Profile not complete - Direct to Profile Setup
                         onProfileNeeded()
                     }
                 } else {
-                    // User document doesn't exist - Direct to Profile Setup
                     onProfileNeeded()
                 }
             }
-            .addOnFailureListener { e ->
-                // Error - Direct to Profile Setup
-                onProfileNeeded()
-            }
+            .addOnFailureListener { onProfileNeeded() }
     }
 
     // Email apply handler
     fun handleEmailApply(job: Job) {
-        if (!emailManager.hasEmailApp()) {
-            Toast.makeText(context, "No email app installed", Toast.LENGTH_SHORT).show()
-            return
-        }
-
         if (!emailManager.isTemplateSaved()) {
-            // First time - go to email template setup
             onEmailTemplateNeeded()
             return
         }
 
-        if (emailManager.isAutoSendEnabled()) {
-            // Auto-send mode - one click direct
+        scope.launch {
+            isEmailSending = true
+
             emailManager.sendEmailDirectly(
                 toEmail = job.contactEmail,
                 jobTitle = job.title,
                 companyName = job.company,
-                onSuccess = {
-                    Toast.makeText(context, "Email opened!", Toast.LENGTH_SHORT).show()
+                onSuccess = { message ->
+                    isEmailSending = false
+                    Toast.makeText(context, message, Toast.LENGTH_LONG).show()
                 },
                 onError = { error ->
-                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                }
-            )
-        } else {
-            // Edit mode - open with editable content
-            emailManager.openEmailWithEdit(
-                toEmail = job.contactEmail,
-                jobTitle = job.title,
-                companyName = job.company,
-                onSuccess = {
-                    Toast.makeText(context, "Email opened for editing", Toast.LENGTH_SHORT).show()
-                },
-                onError = { error ->
-                    Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
+                    isEmailSending = false
+                    Toast.makeText(context, error, Toast.LENGTH_LONG).show()
                 }
             )
         }
@@ -185,42 +171,86 @@ fun MainHomeScreen(
         bottomBar = {
             NavigationBar(
                 containerColor = Color(0xFF0D0D0D),
-                contentColor = TextWhite
+                contentColor = TextWhite,
+                tonalElevation = 8.dp
             ) {
+                // Tab 1: Home
                 NavigationBarItem(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+                    icon = {
+                        Icon(
+                            if (selectedTab == 0) Icons.Default.Home else Icons.Default.Home,
+                            contentDescription = "Home"
+                        )
+                    },
                     label = { Text("Home", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = PrimaryGreen,
                         selectedTextColor = PrimaryGreen,
                         unselectedIconColor = TextGray,
-                        unselectedTextColor = TextGray
+                        unselectedTextColor = TextGray,
+                        indicatorColor = Color(0xFF1A1A1A)
                     )
                 )
+
+                // Tab 2: Saved
                 NavigationBarItem(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    icon = { Icon(Icons.Default.Favorite, contentDescription = "Saved") },
+                    icon = {
+                        Icon(
+                            if (selectedTab == 1) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = "Saved Jobs"
+                        )
+                    },
                     label = { Text("Saved", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = PrimaryGreen,
                         selectedTextColor = PrimaryGreen,
                         unselectedIconColor = TextGray,
-                        unselectedTextColor = TextGray
+                        unselectedTextColor = TextGray,
+                        indicatorColor = Color(0xFF1A1A1A)
                     )
                 )
+
+                // Tab 3: Applications
                 NavigationBarItem(
                     selected = selectedTab == 2,
                     onClick = { selectedTab = 2 },
-                    icon = { Icon(Icons.Default.Person, contentDescription = "Profile") },
+                    icon = {
+                        Icon(
+                            Icons.Default.Description,
+                            contentDescription = "Applications"
+                        )
+                    },
+                    label = { Text("Applied", fontSize = 10.sp) },
+                    colors = NavigationBarItemDefaults.colors(
+                        selectedIconColor = PrimaryGreen,
+                        selectedTextColor = PrimaryGreen,
+                        unselectedIconColor = TextGray,
+                        unselectedTextColor = TextGray,
+                        indicatorColor = Color(0xFF1A1A1A)
+                    )
+                )
+
+                // Tab 4: Profile
+                NavigationBarItem(
+                    selected = selectedTab == 3,
+                    onClick = { selectedTab = 3 },
+                    icon = {
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = "Profile"
+                        )
+                    },
                     label = { Text("Profile", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = PrimaryGreen,
                         selectedTextColor = PrimaryGreen,
                         unselectedIconColor = TextGray,
-                        unselectedTextColor = TextGray
+                        unselectedTextColor = TextGray,
+                        indicatorColor = Color(0xFF1A1A1A)
                     )
                 )
             }
@@ -252,7 +282,7 @@ fun MainHomeScreen(
                         showEmailOnly = emailOnly
                         filteredJobs = applyFilters(jobs, searchQuery, workTypeFilter, emailOnly)
                     },
-                    onJobClick = { job -> checkProfileAndApply(job) },
+                    onJobClick = { job -> selectedJobForDetail = job },
                     onEmailApply = { job -> handleEmailApply(job) },
                     onSaveJob = { job ->
                         saveJobForUser(db, auth.currentUser?.uid, job)
@@ -260,12 +290,24 @@ fun MainHomeScreen(
                     }
                 )
                 1 -> SavedJobsTab(
-                    onJobClick = { job -> checkProfileAndApply(job) },
+                    onJobClick = { job -> selectedJobForDetail = job },
                     onEmailApply = { job -> handleEmailApply(job) }
                 )
-                2 -> ProfileTab(onLogout = onLogout)
+                2 -> ApplicationsTab()
+                3 -> ProfileTab(onLogout = onLogout)
             }
         }
+    }
+
+    // Job Detail Bottom Sheet
+    selectedJobForDetail?.let { job ->
+        JobDetailBottomSheet(
+            job = job,
+            onDismiss = { selectedJobForDetail = null },
+            onApply = { checkProfileAndApply(job) },
+            onEmailApply = { handleEmailApply(job) },
+            isEmailSending = isEmailSending
+        )
     }
 }
 
@@ -312,27 +354,23 @@ fun HomeTab(
     onSaveJob: (Job) -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
+        modifier = Modifier.fillMaxSize().background(BackgroundDark)
     ) {
         // Header
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
-                    text = "Find Your Dream Job",
+                    "Find Your Dream Job",
                     color = TextWhite,
-                    fontSize = 22.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "${jobs.size} jobs available",
+                    "${jobs.size} jobs available",
                     color = TextGray,
                     fontSize = 12.sp
                 )
@@ -343,10 +381,7 @@ fun HomeTab(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = onSearchChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .height(50.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(50.dp),
             placeholder = { Text("Search jobs...", color = TextGray.copy(alpha = 0.5f)) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = TextGray) },
             trailingIcon = {
@@ -371,9 +406,7 @@ fun HomeTab(
 
         // Filter Chips
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             listOf("All", "Remote", "Hybrid", "On-site").forEach { filter ->
@@ -391,9 +424,7 @@ fun HomeTab(
 
         // Email Toggle
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("Show jobs with direct email", color = TextGray, fontSize = 13.sp)
@@ -455,7 +486,7 @@ fun HomeTab(
 }
 
 // ====================================================================
-// JOB CARD - With Email Apply Button
+// JOB CARD - Compact View
 // ====================================================================
 
 @Composable
@@ -468,25 +499,18 @@ fun JobCard(
     var isSaved by remember { mutableStateOf(false) }
 
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A)),
-        border = BorderStroke(
-            1.dp,
-            if (job.hasEmail) PrimaryGreen.copy(alpha = 0.4f) else BorderGray.copy(alpha = 0.5f)
-        )
+        border = BorderStroke(1.dp, if (job.hasEmail) PrimaryGreen.copy(alpha = 0.4f) else BorderGray.copy(alpha = 0.5f))
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
-            // Top Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
                 Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-                    // Company Logo
                     if (job.companyLogo.isNotEmpty()) {
                         AsyncImage(
                             model = job.companyLogo,
@@ -520,7 +544,6 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Info Tags
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 InfoTag(Icons.Default.LocationOn, job.location)
                 InfoTag(Icons.Default.Work, job.workType)
@@ -529,8 +552,7 @@ fun JobCard(
                 }
             }
 
-            // Email indicator
-            if (job.hasEmail && job.contactEmail.isNotEmpty()) {
+            if (job.hasEmail) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Email, null, tint = PrimaryGreen, modifier = Modifier.size(14.dp))
@@ -541,7 +563,6 @@ fun JobCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Bottom Row: Date + Email Button + Apply Button
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -550,7 +571,6 @@ fun JobCard(
                 Text(formatTimeAgo(job.postedAt), color = TextGray.copy(alpha = 0.6f), fontSize = 10.sp)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // Email Apply Button - Only if email available
                     if (job.hasEmail && job.contactEmail.isNotEmpty()) {
                         OutlinedButton(
                             onClick = onEmailApply,
@@ -560,17 +580,12 @@ fun JobCard(
                             shape = RoundedCornerShape(16.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp)
                         ) {
-                            Icon(
-                                Icons.Default.Email,
-                                contentDescription = "Email Apply",
-                                modifier = Modifier.size(14.dp)
-                            )
+                            Icon(Icons.Default.Email, "Email", modifier = Modifier.size(14.dp))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("Email", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         }
                     }
 
-                    // Regular Apply Button
                     Button(
                         onClick = onClick,
                         modifier = Modifier.height(32.dp),
@@ -582,6 +597,126 @@ fun JobCard(
                     }
                 }
             }
+        }
+    }
+}
+
+// ====================================================================
+// JOB DETAIL BOTTOM SHEET
+// ====================================================================
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun JobDetailBottomSheet(
+    job: Job,
+    onDismiss: () -> Unit,
+    onApply: () -> Unit,
+    onEmailApply: () -> Unit,
+    isEmailSending: Boolean = false
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = Color(0xFF1A1A1A),
+        contentColor = TextWhite
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(24.dp)
+        ) {
+            // Company Logo + Info
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (job.companyLogo.isNotEmpty()) {
+                    AsyncImage(
+                        model = job.companyLogo,
+                        contentDescription = "Logo",
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(
+                            Brush.linearGradient(listOf(PrimaryGreen, Color(0xFF00D2A0)))
+                        ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(job.company.take(1).uppercase(), color = Color.Black, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(job.company, color = PrimaryGreen, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(job.title, color = TextWhite, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Info Tags
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoTag(Icons.Default.LocationOn, job.location)
+                InfoTag(Icons.Default.Work, job.workType)
+                InfoTag(Icons.Default.Payments, job.salary)
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Description
+            Text("Job Description", color = TextGray, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                job.description.ifEmpty { "No description available" },
+                color = TextWhite.copy(alpha = 0.8f),
+                fontSize = 14.sp,
+                lineHeight = 20.sp
+            )
+
+            if (job.hasEmail && job.contactEmail.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Contact Email", color = TextGray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(job.contactEmail, color = PrimaryGreen, fontSize = 14.sp)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                if (job.hasEmail && job.contactEmail.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = onEmailApply,
+                        modifier = Modifier.weight(1f).height(50.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = PrimaryGreen),
+                        border = BorderStroke(1.dp, PrimaryGreen),
+                        shape = RoundedCornerShape(14.dp)
+                    ) {
+                        if (isEmailSending) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = PrimaryGreen, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Email, null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Email Apply", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onApply,
+                    modifier = Modifier.weight(1f).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen, contentColor = Color.Black),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Text("Apply Now", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -624,8 +759,7 @@ fun SavedJobsTab(
             return@LaunchedEffect
         }
 
-        db.collection("users")
-            .document(userId)
+        db.collection("users").document(userId)
             .collection("savedJobs")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
@@ -637,8 +771,7 @@ fun SavedJobsTab(
                     val jobList = mutableListOf<Job>()
                     for (doc in snapshot.documents) {
                         try {
-                            val job = Job.fromDocument(doc)
-                            jobList.add(job)
+                            jobList.add(Job.fromDocument(doc))
                         } catch (e: Exception) {}
                     }
                     savedJobs = jobList
@@ -647,16 +780,8 @@ fun SavedJobsTab(
             }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().background(BackgroundDark)
-    ) {
-        Text(
-            text = "Saved Jobs",
-            color = TextWhite,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp)
-        )
+    Column(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        Text("Saved Jobs", color = TextWhite, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
 
         when {
             isLoading -> {
@@ -684,7 +809,7 @@ fun SavedJobsTab(
                             job = job,
                             onClick = { onJobClick(job) },
                             onEmailApply = { onEmailApply(job) },
-                            onSave = { /* Already saved */ }
+                            onSave = {}
                         )
                     }
                 }
@@ -692,6 +817,106 @@ fun SavedJobsTab(
         }
     }
 }
+
+// ====================================================================
+// APPLICATIONS TAB
+// ====================================================================
+
+@Composable
+fun ApplicationsTab() {
+    val db = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
+    val userId = auth.currentUser?.uid
+
+    var applications by remember { mutableStateOf<List<ApplicationRecord>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    LaunchedEffect(userId) {
+        if (userId == null) {
+            isLoading = false
+            return@LaunchedEffect
+        }
+
+        db.collection("users").document(userId)
+            .collection("applications")
+            .orderBy("appliedAt", Query.Direction.DESCENDING)
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    isLoading = false
+                    return@addSnapshotListener
+                }
+
+                if (snapshot != null) {
+                    val appList = mutableListOf<ApplicationRecord>()
+                    for (doc in snapshot.documents) {
+                        val app = ApplicationRecord(
+                            id = doc.id,
+                            companyName = doc.getString("companyName") ?: "",
+                            jobTitle = doc.getString("jobTitle") ?: "",
+                            status = doc.getString("status") ?: "Applied",
+                            appliedAt = doc.getLong("appliedAt") ?: 0L
+                        )
+                        appList.add(app)
+                    }
+                    applications = appList
+                    isLoading = false
+                }
+            }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().background(BackgroundDark)) {
+        Text("My Applications", color = TextWhite, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(16.dp))
+
+        when {
+            isLoading -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = PrimaryGreen)
+                }
+            }
+            applications.isEmpty() -> {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Description, null, tint = TextGray.copy(alpha = 0.5f), modifier = Modifier.size(56.dp))
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text("No Applications Yet", color = TextGray, fontSize = 16.sp)
+                        Text("Apply to jobs to track them here", color = TextGray.copy(alpha = 0.6f), fontSize = 13.sp)
+                    }
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(applications) { app ->
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1A1A))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(app.jobTitle, color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(app.companyName, color = PrimaryGreen, fontSize = 12.sp)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text(app.status, color = TextGray, fontSize = 12.sp)
+                                    Text(formatTimeAgo(app.appliedAt), color = TextGray.copy(alpha = 0.6f), fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ====================================================================
+// APPLICATION RECORD DATA CLASS
+// ====================================================================
+
+
 
 // ====================================================================
 // PROFILE TAB

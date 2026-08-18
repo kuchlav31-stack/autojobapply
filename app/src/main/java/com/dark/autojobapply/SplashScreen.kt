@@ -1,7 +1,6 @@
 package com.dark.autojobapply
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.Easing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -15,8 +14,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -26,15 +23,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dark.autojobapply.ui.theme.BackgroundDark
-import com.dark.autojobapply.ui.theme.PrimaryGreen
-import com.dark.autojobapply.ui.theme.TextGray
-import com.dark.autojobapply.ui.theme.TextWhite
+import com.dark.jobai.ui.theme.BackgroundDark
+import com.dark.jobai.ui.theme.PrimaryGreen
+import com.dark.jobai.ui.theme.TextGray
+import com.dark.jobai.ui.theme.TextWhite
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -132,8 +130,8 @@ fun SplashScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Send,
-                    contentDescription = "autojobApply Logo Logo",
+                    painter = painterResource(id = R.drawable.posting),
+                    contentDescription = "AutoJobApply Logo",
                     tint = PrimaryGreen,
                     modifier = Modifier.size(42.dp)
                 )
