@@ -6,10 +6,11 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import com.dark.autojobapply.SplashScreen
 import com.dark.jobai.ui.screens.auth.ForgotPasswordScreen
 import com.dark.jobai.ui.screens.auth.LoginScreen
+import com.dark.jobai.ui.screens.auth.OnboardingScreen
 import com.dark.jobai.ui.screens.auth.SignUpScreen
-import com.dark.jobai.ui.screens.auth.SplashScreen
 import com.dark.jobai.ui.screens.main.MainScreen
 import com.dark.jobai.ui.screens.main.jobs.JobDetailScreen
 import com.dark.jobai.ui.screens.main.pricing.PricingScreen
@@ -26,22 +27,29 @@ fun AppNavigation(
         navController = navController,
         startDestination = AppRoutes.SPLASH
     ) {
-        // ============ AUTH ============
+        // ============ SPLASH ============
         composable(AppRoutes.SPLASH) {
             SplashScreen(
-                onNavigateToLogin = {
-                    navController.navigate(AppRoutes.LOGIN) {
-                        popUpTo(AppRoutes.SPLASH) { inclusive = true }
-                    }
-                },
-                onNavigateToMain = {
-                    navController.navigate(AppRoutes.MAIN) {
+                onNavigateNext = { route ->
+                    navController.navigate(route) {
                         popUpTo(AppRoutes.SPLASH) { inclusive = true }
                     }
                 }
             )
         }
 
+        // ============ ONBOARDING CAROUSEL ============
+        composable(AppRoutes.ONBOARDING) {
+            OnboardingScreen(
+                onFinishOnboarding = {
+                    navController.navigate(AppRoutes.LOGIN) {
+                        popUpTo(AppRoutes.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+        }
+
+        // ============ AUTH ============
         composable(AppRoutes.LOGIN) {
             LoginScreen(
                 onLoginSuccess = {
@@ -51,9 +59,6 @@ fun AppNavigation(
                 },
                 onNavigateToSignUp = {
                     navController.navigate(AppRoutes.SIGNUP)
-                },
-                onNavigateToForgotPassword = {
-                    navController.navigate(AppRoutes.FORGOT_PASSWORD)
                 }
             )
         }
@@ -77,7 +82,7 @@ fun AppNavigation(
             )
         }
 
-        // ============ ONBOARDING ============
+        // ============ ONBOARDING SETUP ============
         composable(AppRoutes.PROFILE_SETUP) {
             ProfileSetupScreen(
                 onProfileComplete = {
@@ -125,7 +130,7 @@ fun AppNavigation(
             )
         }
 
-        // ============ JOB DETAIL (FIXED) ============
+        // ============ JOB DETAIL ============
         composable(
             route = AppRoutes.JOB_DETAIL,
             arguments = listOf(

@@ -50,7 +50,9 @@ class FeedViewModel(
      * Load feed posts
      */
     fun loadPosts() {
+        val currentUserId = auth.currentUser?.uid
         feedRepository.getFeedPostsListener(
+            currentUserId = currentUserId,
             onResult = { posts ->
                 _posts.value = posts
                 _isLoading.value = false
@@ -65,11 +67,16 @@ class FeedViewModel(
     /**
      * Create new post
      */
-    fun createPost(content: String, imageUri: Uri?) {
+    fun createPost(content: String, imageUri: Uri?, onComplete: (Boolean) -> Unit = {}) {
         viewModelScope.launch {
             _isCreatingPost.value = true
 
-            val userId = auth.currentUser?.uid ?: return@launch
+            val userId = auth.currentUser?.uid ?: run {
+                _errorMessage.value = "User not logged in"
+                _isCreatingPost.value = false
+                onComplete(false)
+                return@launch
+            }
 
             try {
                 // Upload image if provided
@@ -79,29 +86,35 @@ class FeedViewModel(
                     imageUrl = result.getOrNull() ?: ""
                 }
 
-                // Get user info
+                // Get user info directly from Firestore
                 val user = userRepository.getUserById(userId)
 
                 // Create post
                 val post = FeedPost(
                     userId = userId,
-                    userName = user?.fullName ?: "Anonymous",
-                    userHeadline = user?.headline ?: "",
+                    userName = if (!user?.fullName.isNullOrBlank()) user!!.fullName else "JobAI User",
+                    userHeadline = user?.headline ?: "Member",
                     userProfileImage = user?.profileImageUrl ?: "",
                     content = content,
                     imageUrl = imageUrl,
-                    createdAt = System.currentTimeMillis()
+                    createdAt = System.currentTimeMillis(),
+                    likedBy = emptyList()
                 )
 
                 val success = feedRepository.createPost(post)
 
                 if (success) {
                     loadPosts()
+                    onComplete(true)
                 } else {
+                    android.util.Log.e("FeedViewModel", "Failed to create post: Firestore write returned false")
                     _errorMessage.value = "Failed to create post"
+                    onComplete(false)
                 }
             } catch (e: Exception) {
+                android.util.Log.e("FeedViewModel", "Exception creating post", e)
                 _errorMessage.value = e.localizedMessage
+                onComplete(false)
             }
 
             _isCreatingPost.value = false

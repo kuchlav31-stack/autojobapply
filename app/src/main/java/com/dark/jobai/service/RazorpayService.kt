@@ -1,5 +1,4 @@
 package com.dark.jobai.service
-
 import android.app.Activity
 import android.util.Log
 import com.dark.jobai.data.model.Payment
@@ -15,13 +14,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
 class RazorpayService(
     private val activity: Activity,
     private val userRepository: UserRepository = UserRepository(),
     private val paymentRepository: PaymentRepository = PaymentRepository()
 ) : PaymentResultWithDataListener {
-
     companion object {
         private const val TAG = "RazorpayService"
     }

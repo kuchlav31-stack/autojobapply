@@ -1,13 +1,12 @@
 package com.dark.jobai.ui.screens.main.feed
 
-import android.Manifest
 import android.net.Uri
-import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +20,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -30,7 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dark.jobai.data.model.FeedPost
-import com.dark.jobai.ui.theme.*
+import com.dark.jobai.ui.components.EmptyState
 import com.dark.jobai.util.Formatters
 import com.dark.jobai.viewmodel.FeedViewModel
 import com.google.firebase.auth.FirebaseAuth
@@ -45,143 +45,136 @@ fun FeedScreen() {
     val isLoading by feedViewModel.isLoading.collectAsState()
 
     var showCreatePost by remember { mutableStateOf(false) }
-    var hasStoragePermission by remember { mutableStateOf(false) }
 
-    // Permission launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        hasStoragePermission = permissions.values.all { it }
+    // --- Professional Light Theme Palette ---
+    val AppBlue = Color(0xFF0F52FF)
+    val BgLight = Color(0xFFF8FAFC)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
 
-        if (hasStoragePermission) {
-            showCreatePost = true
-        } else {
-            Toast.makeText(context, "Storage permission required to add images", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    // Check and request permission
-    fun checkPermissionAndCreatePost() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+ - No storage permission needed for image picker
-            showCreatePost = true
-        } else {
-            // Android 12 and below - Need storage permission
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.READ_EXTERNAL_STORAGE,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE
-                )
-            )
-        }
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    "Community Feed",
-                    color = TextWhite,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    "${posts.size} posts",
-                    color = TextGray,
-                    fontSize = 12.sp
-                )
-            }
-
-            // Create Post Button
-            IconButton(
-                onClick = { checkPermissionAndCreatePost() },
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = BgLight,
+        topBar = {
+            Column(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(PrimaryGreen)
+                    .background(BgLight)
+                    .statusBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
-                Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Create Post",
-                    tint = Color.Black
-                )
-            }
-        }
-
-        // Content
-        when {
-            isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = PrimaryGreen)
-                }
-            }
-            posts.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            Icons.Default.DynamicFeed,
-                            contentDescription = null,
-                            tint = TextGray.copy(alpha = 0.5f),
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text("No Posts Yet", color = TextGray, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
                         Text(
-                            "Tap + to create your first post!",
-                            color = TextGray.copy(alpha = 0.6f),
-                            fontSize = 13.sp
+                            text = "Community Feed",
+                            color = TextDark,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            letterSpacing = (-0.5).sp
                         )
+                        Text(
+                            text = "Insights & Career Trends",
+                            color = AppBlue,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    Surface(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .shadow(2.dp, RoundedCornerShape(10.dp), ambientColor = Color.Black.copy(alpha = 0.05f)),
+                        shape = RoundedCornerShape(10.dp),
+                        color = SurfaceWhite,
+                        border = BorderStroke(1.dp, BorderSubtle)
+                    ) {
+                        IconButton(
+                            onClick = { feedViewModel.loadPosts() },
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Icon(Icons.Default.Refresh, "Refresh", tint = TextDark, modifier = Modifier.size(16.dp))
+                        }
                     }
                 }
             }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { showCreatePost = true },
+                containerColor = AppBlue,
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp),
+                elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    items(posts, key = { it.id }) { post ->
-                        FeedPostCard(
-                            post = post,
-                            onLike = { feedViewModel.likePost(post) },
-                            onDelete = {
-                                if (post.userId == FirebaseAuth.getInstance().currentUser?.uid) {
+                    Icon(Icons.Default.Add, contentDescription = "Create Post", modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Post", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                }
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            when {
+                isLoading -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = AppBlue)
+                    }
+                }
+                posts.isEmpty() -> {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        EmptyState(
+                            icon = Icons.Default.ChatBubbleOutline,
+                            title = "Community is quiet",
+                            description = "Be the first to share a job insight or ask a career question!"
+                        )
+                    }
+                }
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(BgLight),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(posts, key = { it.id }) { post ->
+                            FeedPostCard(
+                                post = post,
+                                onLike = { feedViewModel.likePost(post) },
+                                onDelete = {
                                     feedViewModel.deletePost(post.id)
                                 }
-                            }
-                        )
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(80.dp)) }
                     }
                 }
             }
         }
     }
 
-    // Create Post Sheet
     if (showCreatePost) {
         CreatePostSheet(
             onDismiss = { showCreatePost = false },
             onPostCreated = {
                 showCreatePost = false
-                Toast.makeText(context, "✅ Post created!", Toast.LENGTH_SHORT).show()
             }
         )
     }
 }
-
-// ====================================================================
-// FEED POST CARD
-// ====================================================================
 
 @Composable
 fun FeedPostCard(
@@ -189,211 +182,202 @@ fun FeedPostCard(
     onLike: () -> Unit,
     onDelete: () -> Unit = {}
 ) {
-    var isLiked by remember { mutableStateOf(post.isLiked) }
-    var likeCount by remember { mutableStateOf(post.likes) }
+    var isLiked by remember(post.id) { mutableStateOf(post.likedBy.contains(FirebaseAuth.getInstance().currentUser?.uid)) }
+    var likeCount by remember(post.id) { mutableLongStateOf(post.likes) }
     var showMenu by remember { mutableStateOf(false) }
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark),
-        border = BorderStroke(1.dp, BorderGray.copy(alpha = 0.3f))
+    val AppBlue = Color(0xFF0F52FF)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
+    val ErrorRed = Color(0xFFEF4444)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 6.dp,
+                shape = RoundedCornerShape(20.dp),
+                ambientColor = Color.Black.copy(alpha = 0.04f),
+                spotColor = Color.Black.copy(alpha = 0.04f)
+            ),
+        shape = RoundedCornerShape(20.dp),
+        color = SurfaceWhite,
+        border = BorderStroke(1.dp, BorderSubtle)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // User Info
+        Column(modifier = Modifier.padding(18.dp)) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Profile Image
-                if (post.userProfileImage.isNotEmpty()) {
-                    AsyncImage(
-                        model = post.userProfileImage,
-                        contentDescription = "Profile",
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(PrimaryGreen, Color(0xFF00D2A0))
-                                )
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
+                // Profile Avatar
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(AppBlue.copy(alpha = 0.08f))
+                        .border(1.dp, AppBlue.copy(alpha = 0.2f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (post.userProfileImage.isNotEmpty()) {
+                        AsyncImage(
+                            model = post.userProfileImage,
+                            contentDescription = null,
+                            modifier = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
                         Text(
                             post.userName.take(1).uppercase(),
-                            color = Color.Black,
+                            color = AppBlue,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        post.userName,
-                        color = TextWhite,
-                        fontSize = 14.sp,
+                        text = post.userName,
+                        color = TextDark,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold
                     )
                     if (post.userHeadline.isNotEmpty()) {
                         Text(
-                            post.userHeadline,
-                            color = TextGray,
+                            text = post.userHeadline,
+                            color = AppBlue,
                             fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
                     Text(
-                        Formatters.formatTimeAgo(post.createdAt),
-                        color = TextGray.copy(alpha = 0.6f),
+                        text = Formatters.formatTimeAgo(post.createdAt),
+                        color = TextMuted,
                         fontSize = 10.sp
                     )
                 }
 
-                // Delete button (only for own posts)
                 if (post.userId == currentUserId) {
-                    IconButton(
-                        onClick = { showMenu = true },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = "More",
-                            tint = TextGray,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Delete", color = ErrorRed) },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Default.Delete, null, tint = ErrorRed, modifier = Modifier.size(18.dp))
-                            }
-                        )
+                    Box {
+                        IconButton(
+                            onClick = { showMenu = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, null, tint = TextMuted, modifier = Modifier.size(18.dp))
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            modifier = Modifier.background(SurfaceWhite)
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Delete Post", color = ErrorRed, fontWeight = FontWeight.SemiBold) },
+                                onClick = { onDelete(); showMenu = false },
+                                leadingIcon = { Icon(Icons.Default.Delete, null, tint = ErrorRed) }
+                            )
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Content
+            // Text Content
             Text(
-                post.content,
-                color = TextWhite.copy(alpha = 0.9f),
+                text = post.content,
+                color = TextDark.copy(alpha = 0.9f),
                 fontSize = 14.sp,
-                lineHeight = 20.sp
+                lineHeight = 22.sp
             )
 
-            // Image
+            // Optional Image
             if (post.imageUrl.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(14.dp))
                 AsyncImage(
                     model = post.imageUrl,
-                    contentDescription = "Post Image",
+                    contentDescription = null,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .heightIn(max = 260.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFFF1F5F9))
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            HorizontalDivider(color = BorderGray.copy(alpha = 0.3f))
-
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = BorderSubtle)
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Actions
+            // Action Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                // Like
+                // Like Button
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
+                        .clip(RoundedCornerShape(8.dp))
                         .clickable {
                             isLiked = !isLiked
                             if (isLiked) likeCount++ else likeCount--
                             onLike()
                         }
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
-                        if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = "Like",
-                        tint = if (isLiked) ErrorRed else TextGray,
-                        modifier = Modifier.size(20.dp)
+                        imageVector = if (isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = null,
+                        tint = if (isLiked) ErrorRed else TextMuted,
+                        modifier = Modifier.size(18.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "$likeCount",
-                        color = if (isLiked) ErrorRed else TextGray,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
+                        text = if (likeCount > 0) likeCount.toString() else "Like",
+                        color = if (isLiked) ErrorRed else TextMuted,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
-                // Comment
+                // Comment Button
                 Row(
                     modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { /* Comment Action */ }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Default.Comment,
-                        contentDescription = "Comment",
-                        tint = TextGray,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("${post.comments}", color = TextGray, fontSize = 12.sp)
+                    Icon(Icons.Default.ChatBubbleOutline, null, tint = TextMuted, modifier = Modifier.size(18.dp))
+                    if (post.comments > 0) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(post.comments.toString(), color = TextMuted, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
 
-                // Share
-                Row(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(20.dp))
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Share Button
+                IconButton(
+                    onClick = { /* Share Action */ },
+                    modifier = Modifier.size(32.dp)
                 ) {
-                    Icon(
-                        Icons.Default.Share,
-                        contentDescription = "Share",
-                        tint = TextGray,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Share", color = TextGray, fontSize = 12.sp)
+                    Icon(Icons.Default.Share, null, tint = TextMuted, modifier = Modifier.size(18.dp))
                 }
             }
         }
     }
 }
 
+
 // ====================================================================
-// CREATE POST SHEET (Permission Already Handled)
+// CREATE POST SHEET (Upgraded Professional Light UI)
 // ====================================================================
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -409,7 +393,12 @@ fun CreatePostSheet(
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     val isCreatingPost by feedViewModel.isCreatingPost.collectAsState()
 
-    // Image picker - No permission needed for Android 13+
+    val AppBlue = Color(0xFF0F52FF)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
+
     val imagePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
@@ -420,8 +409,10 @@ fun CreatePostSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        contentColor = TextWhite
+        containerColor = SurfaceWhite,
+        contentColor = TextDark,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        tonalElevation = 8.dp
     ) {
         Column(
             modifier = Modifier
@@ -430,41 +421,42 @@ fun CreatePostSheet(
         ) {
             Text(
                 "Create Post",
-                color = TextWhite,
+                color = TextDark,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold
             )
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Post Content
+            // Post Content Field
             OutlinedTextField(
                 value = postContent,
                 onValueChange = { postContent = it },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(150.dp),
-                placeholder = { Text("Share something with the community...") },
-                shape = RoundedCornerShape(12.dp),
+                placeholder = { Text("Share an insight or ask a career question...", color = TextMuted, fontSize = 14.sp) },
+                shape = RoundedCornerShape(14.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedTextColor = TextWhite,
-                    unfocusedTextColor = TextWhite,
-                    focusedBorderColor = PrimaryGreen,
-                    unfocusedBorderColor = BorderGray,
-                    cursorColor = PrimaryGreen,
-                    focusedContainerColor = BackgroundDark,
-                    unfocusedContainerColor = BackgroundDark
+                    focusedTextColor = TextDark,
+                    unfocusedTextColor = TextDark,
+                    focusedBorderColor = AppBlue,
+                    unfocusedBorderColor = BorderSubtle,
+                    cursorColor = AppBlue,
+                    focusedContainerColor = Color(0xFFF8FAFC),
+                    unfocusedContainerColor = Color(0xFFF8FAFC)
                 )
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
-            // Image Upload
+            // Image Upload Box
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
-                    .background(BackgroundDark)
+                    .background(Color(0xFFF8FAFC))
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
                     .clickable { imagePicker.launch("image/*") }
                     .padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically
@@ -472,26 +464,27 @@ fun CreatePostSheet(
                 Icon(
                     if (imageUri != null) Icons.Default.CheckCircle else Icons.Default.Image,
                     contentDescription = null,
-                    tint = if (imageUri != null) PrimaryGreen else TextGray
+                    tint = if (imageUri != null) Color(0xFF10B981) else TextMuted
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(10.dp))
                 Text(
-                    if (imageUri != null) "Image Selected ✓" else "Add Image (Optional)",
-                    color = TextGray,
-                    fontSize = 14.sp
+                    if (imageUri != null) "Image Selected ✓" else "Attach an image (Optional)",
+                    color = if (imageUri != null) Color(0xFF10B981) else TextMuted,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
 
-            // Show selected image
+            // Show selected image preview
             if (imageUri != null) {
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 AsyncImage(
                     model = imageUri,
                     contentDescription = "Selected Image",
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(150.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(12.dp))
                 )
             }
 
@@ -504,32 +497,40 @@ fun CreatePostSheet(
                         Toast.makeText(context, "Please write something", Toast.LENGTH_SHORT).show()
                         return@Button
                     }
-                    feedViewModel.createPost(postContent, imageUri)
-                    onPostCreated()
+                    feedViewModel.createPost(postContent, imageUri) { success ->
+                        if (success) {
+                            Toast.makeText(context, "Community notified! ✅", Toast.LENGTH_SHORT).show()
+                            onPostCreated()
+                        } else {
+                            val error = feedViewModel.errorMessage.value ?: "Unknown error"
+                            Toast.makeText(context, "Failed: $error", Toast.LENGTH_LONG).show()
+                        }
+                    }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
+                    .height(52.dp),
                 enabled = !isCreatingPost,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryGreen,
-                    contentColor = Color.Black,
-                    disabledContainerColor = PrimaryGreen.copy(alpha = 0.3f)
+                    containerColor = AppBlue,
+                    contentColor = Color.White,
+                    disabledContainerColor = AppBlue.copy(alpha = 0.3f)
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = RoundedCornerShape(14.dp),
+                elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
             ) {
                 if (isCreatingPost) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(20.dp),
-                        color = Color.Black,
+                        color = Color.White,
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Text("Post", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Publish Post", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
         }
     }
 }

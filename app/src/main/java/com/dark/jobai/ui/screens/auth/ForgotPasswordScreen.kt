@@ -1,6 +1,7 @@
 package com.dark.jobai.ui.screens.auth
 
 import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -38,80 +39,110 @@ fun ForgotPasswordScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundDark)
-            .statusBarsPadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
                 .padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Icon(
-                Icons.Default.Lock,
-                contentDescription = null,
-                tint = PrimaryGreen,
-                modifier = Modifier.size(64.dp)
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Text(
-                text = "Forgot Password",
-                color = TextWhite,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Text(
-                text = "Enter your email to receive reset link",
-                color = TextGray,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(top = 8.dp, bottom = 32.dp)
-            )
-
-            AppTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = "Email Address",
-                placeholder = "name@example.com",
-                icon = Icons.Default.Email,
-                keyboardType = KeyboardType.Email
-            )
-
-            if (errorMessage != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = errorMessage ?: "",
-                    color = if (errorMessage == "Password reset email sent!") PrimaryGreen else ErrorRed,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, "Back", tint = TextWhite)
+                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(60.dp))
 
-            PrimaryButton(
-                text = "Send Reset Link",
-                onClick = {
-                    if (email.isBlank()) {
-                        Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT).show()
-                        return@PrimaryButton
-                    }
-                    authViewModel.resetPassword(email.trim())
-                },
-                isLoading = isLoading
-            )
+            Surface(
+                modifier = Modifier.size(100.dp),
+                shape = RoundedCornerShape(28.dp),
+                color = SurfaceDark,
+                border = BorderStroke(1.dp, PrimaryGreen.copy(alpha = 0.2f))
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.LockReset,
+                        contentDescription = null,
+                        tint = PrimaryGreen,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(32.dp))
 
             Text(
-                text = "Back to Login",
-                color = PrimaryGreen,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.clickable(onClick = onBack)
+                text = "Reset Password",
+                color = TextWhite,
+                style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold)
             )
+
+            Text(
+                text = "We'll send a recovery link to your email",
+                color = TextGray,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
+                color = SurfaceDark,
+                border = BorderStroke(1.dp, BorderGray.copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    AppTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = "Email Address",
+                        placeholder = "Enter your registered email",
+                        icon = Icons.Default.Email,
+                        keyboardType = KeyboardType.Email,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    if (errorMessage != null) {
+                        Text(
+                            text = errorMessage ?: "",
+                            color = if (errorMessage == "Password reset email sent!") SuccessGreen else ErrorRed,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(top = 16.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    PrimaryButton(
+                        text = "Send Recovery Link",
+                        onClick = {
+                            if (email.isBlank()) {
+                                Toast.makeText(context, "Please enter your email", Toast.LENGTH_SHORT).show()
+                                return@PrimaryButton
+                            }
+                            authViewModel.resetPassword(email.trim())
+                        },
+                        isLoading = isLoading,
+                        icon = Icons.Default.Send
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            TextButton(onClick = onBack) {
+                Text(
+                    "Back to Sign In",
+                    color = PrimaryGreen,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
         }
     }
 }

@@ -1,8 +1,10 @@
 package com.dark.jobai.ui.screens.main.pricing
 
+import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -13,175 +15,513 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dark.jobai.data.model.Plan
-import com.dark.jobai.service.UpiPaymentService
-import com.dark.jobai.ui.theme.*
-import com.dark.jobai.viewmodel.PricingViewModel
 import com.google.firebase.auth.FirebaseAuth
-import kotlinx.coroutines.launch
+import com.google.firebase.firestore.FirebaseFirestore
+import com.razorpay.Checkout
+import kotlinx.coroutines.tasks.await
+import org.json.JSONObject
+
+data class PricingPlan(
+    val id: String,         // "free", "starter", "pro", "unlimited"
+    val name: String,
+    val price: String,
+    val rawAmount: Int,     // in paise for Razorpay
+    val level: Int,         // 0: Free, 1: Starter, 2: Pro, 3: Unlimited
+    val period: String,
+    val subtitle: String,
+    val description: String,
+    val features: List<String>,
+    val backgroundBrush: Brush,
+    val textColor: Color,
+    val cardColor: Color,
+    val buttonColor: Color,
+    val isPopular: Boolean = false,
+    val badgeText: String? = null
+)
 
 @Composable
 fun PricingScreen(
-    onUpgradeClick: () -> Unit = {}
+    onUpgradeSuccess: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val activity = context as? android.app.Activity
-    val pricingViewModel: PricingViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
-    val scope = rememberCoroutineScope()
+    val activity = context as? Activity
+    val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
-    val plans by pricingViewModel.plans.collectAsState()
-    val currentUser by pricingViewModel.currentUser.collectAsState()
-    val isLoading by pricingViewModel.isLoading.collectAsState()
+    var userActivePlan by remember { mutableStateOf("free") }
+    var premiumExpiry by remember { mutableStateOf(0L) }
+    var isLoadingUserPlan by remember { mutableStateOf(true) }
 
-    var isProcessingPayment by remember { mutableStateOf(false) }
+    // Fetch user active plan from Firestore
+    LaunchedEffect(currentUserId) {
+        if (currentUserId != null) {
+            try {
+                val doc = FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(currentUserId)
+                    .get()
+                    .await()
+                if (doc.exists()) {
+                    userActivePlan = doc.getString("premiumPlan") ?: "free"
+                    premiumExpiry = doc.getLong("premiumExpiry") ?: doc.getLong("premiumUntil") ?: 0L
+                }
+            } catch (e: Exception) {}
+        }
+        isLoadingUserPlan = false
+    }
 
-    fun handlePayment(plan: Plan) {
-        val userId = FirebaseAuth.getInstance().currentUser?.uid ?: return
+    LaunchedEffect(Unit) {
+        Checkout.preload(context)
+    }
 
-        // ✅ Activity null check
-        if (activity == null) {
-            Toast.makeText(context, "Activity not found", Toast.LENGTH_SHORT).show()
+    fun getPlanLevel(id: String): Int {
+        return when (id) {
+            "starter" -> 1
+            "pro" -> 2
+            "unlimited" -> 3
+            else -> 0
+        }
+    }
+
+    // Razorpay Prorated Payment Trigger
+    fun startRazorpayPayment(plan: PricingPlan) {
+        val activeLevel = getPlanLevel(userActivePlan)
+        val targetLevel = getPlanLevel(plan.id)
+
+        if (targetLevel <= activeLevel) {
+            Toast.makeText(context, "You already own this or a higher plan!", Toast.LENGTH_SHORT).show()
             return
         }
 
-        isProcessingPayment = true
+        val currentPlanPricePaise = when (userActivePlan) {
+            "starter" -> 29900
+            "pro" -> 69900
+            else -> 0
+        }
 
-        val upiService = UpiPaymentService(activity)
+        var finalAmountPaise = plan.rawAmount - currentPlanPricePaise
+        if (finalAmountPaise < 100) finalAmountPaise = 100 // Minimum ₹50 safeguard
 
-        upiService.startPayment(
-            userId = userId,
-            plan = plan,
-            onSuccess = { planName ->
-                isProcessingPayment = false
-                Toast.makeText(context, "✅ $planName activated!", Toast.LENGTH_LONG).show()
-                scope.launch { pricingViewModel.loadUserStatus() }
-            },
-            onError = { error ->
-                isProcessingPayment = false
-                Toast.makeText(context, error, Toast.LENGTH_LONG).show()
+        val descriptionText = if (activeLevel > 0) "Upgrade to ${plan.name} (Difference)" else "Subscription for ${plan.name}"
+
+        val checkout = Checkout()
+        checkout.setKeyID("rzp_live_6vd9RApruseTAi")
+
+        try {
+            val options = JSONObject().apply {
+                put("name", "JobAI Career Agent")
+                put("description", descriptionText)
+                put("currency", "INR")
+                put("amount", finalAmountPaise)
+                put("theme.color", "#0F52FF")
+                put("prefill.email", FirebaseAuth.getInstance().currentUser?.email ?: "user@jobai.com")
             }
-        )
+            checkout.open(activity, options)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Payment Error: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
-    Column(
+    // --- Professional Light Theme Palette ---
+    val AppBlue = Color(0xFF0F52FF)
+    val BgLight = Color(0xFFF8FAFC)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
+
+    val allPlans = listOf(
+        PricingPlan(
+            id = "free",
+            name = "Free Tier",
+            price = "₹0",
+            rawAmount = 0,
+            level = 0,
+            period = "Forever",
+            subtitle = "Starter Access",
+            description = "Basic AI job matching with limited monthly applications.",
+            features = listOf("5–10 applications / month", "Basic AI resume matching", "Community access", "Email support"),
+            backgroundBrush = Brush.verticalGradient(listOf(Color(0xFFFFFFFF), Color(0xFFF1F5F9))),
+            textColor = TextDark,
+            cardColor = Color(0xFFFFFFFF),
+            buttonColor = Color(0xFF64748B)
+        ),
+        PricingPlan(
+            id = "starter",
+            name = "Starter Pro",
+            price = "₹299",
+            rawAmount = 29900,
+            level = 1,
+            period = "per month",
+            subtitle = "Active Job Seekers",
+            description = "Boost response rate with AI personalized outreach emails.",
+            features = listOf("~100 applications / month", "AI-personalized email outreach", "Smart resume optimization", "Priority support"),
+            backgroundBrush = Brush.verticalGradient(listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE))),
+            textColor = Color(0xFF1E3A8A),
+            cardColor = Color(0xFFEFF6FF),
+            buttonColor = Color(0xFF2563EB),
+            badgeText = "POPULAR"
+        ),
+        PricingPlan(
+            id = "pro",
+            name = "Pro Career ⭐",
+            price = "₹699",
+            rawAmount = 69900,
+            level = 2,
+            period = "per month",
+            subtitle = "Rapid Growth",
+            description = "Fully automated AI Auto-Apply to land interviews 5x faster.",
+            features = listOf("~500 applications / month", "Fully automated AI Auto-Apply", "Real-time recruiter view tracking", "24/7 Priority Support"),
+            backgroundBrush = Brush.verticalGradient(listOf(Color(0xFF1E1B4B), Color(0xFF312E81))),
+            textColor = Color(0xFFFFFFFF),
+            cardColor = Color(0xFF1E1B4B),
+            buttonColor = Color(0xFF0F52FF),
+            isPopular = true,
+            badgeText = "BEST VALUE"
+        ),
+        PricingPlan(
+            id = "unlimited",
+            name = "Unlimited VIP",
+            price = "₹1,299",
+            rawAmount = 129900,
+            level = 3,
+            period = "per month",
+            subtitle = "Maximum Speed",
+            description = "Uncapped applications and VIP outreach for senior professionals.",
+            features = listOf("High-volume unlimited auto-apply", "Unlimited AI email outreach", "Dedicated account manager", "VIP Support"),
+            backgroundBrush = Brush.verticalGradient(listOf(Color(0xFFFEF3C7), Color(0xFFFDE68A))),
+            textColor = Color(0xFF78350F),
+            cardColor = Color(0xFFFEF3C7),
+            buttonColor = Color(0xFFD97706),
+            badgeText = "ELITE"
+        )
+    )
+
+    val activeLevel = getPlanLevel(userActivePlan)
+    val displayPlans = if (userActivePlan == "free") allPlans else allPlans.filter { it.level >= activeLevel }
+    val daysLeft = if (premiumExpiry > System.currentTimeMillis()) ((premiumExpiry - System.currentTimeMillis()) / (1000 * 60 * 60 * 24)).toInt() else 0
+
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundDark)
+            .background(BgLight)
     ) {
-        Text(
-            "Premium Plans",
-            color = TextWhite,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(16.dp)
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Header Section
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(horizontal = 20.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = AppBlue.copy(alpha = 0.1f),
+                    modifier = Modifier.size(52.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Default.WorkspacePremium,
+                            contentDescription = "Crown",
+                            tint = AppBlue,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+                }
 
-        if (isLoading) {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryGreen)
+                Spacer(modifier = Modifier.height(14.dp))
+
+                Text(
+                    text = "Subscription & Upgrades",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = TextDark,
+                    textAlign = TextAlign.Center,
+                    letterSpacing = (-0.5).sp
+                )
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = if (userActivePlan != "free") "Active Plan: ${userActivePlan.uppercase()} ($daysLeft days remaining). Upgrade anytime!"
+                    else "Swipe through our transparent plans. Upgrade anytime securely via Razorpay.",
+                    fontSize = 13.sp,
+                    color = if (userActivePlan != "free") Color(0xFF10B981) else TextMuted,
+                    textAlign = TextAlign.Center,
+                    fontWeight = if (userActivePlan != "free") FontWeight.Bold else FontWeight.Normal
+                )
             }
-        } else {
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ============ HORIZONTAL SCROLLABLE CAROUSEL ============
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                displayPlans.forEach { plan ->
+                    val isCurrentActive = plan.id == userActivePlan
+                    val isUpgrade = plan.level > activeLevel
+
+                    val diffAmountStr = if (isUpgrade && activeLevel > 0) {
+                        val currentBase = when (userActivePlan) { "starter" -> 299; "pro" -> 699; else -> 0 }
+                        val targetBase = when (plan.id) { "starter" -> 299; "pro" -> 699; "unlimited" -> 1299; else -> 0 }
+                        val diff = targetBase - currentBase
+                        "Pay only ₹$diff diff"
+                    } else null
+
+                    PricingCardCarouselItem(
+                        plan = plan,
+                        isCurrentActive = isCurrentActive,
+                        isUpgrade = isUpgrade,
+                        proratedText = diffAmountStr,
+                        onSelect = { startRazorpayPayment(plan) }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Trust Footer
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp)
             ) {
-                // Current Status
-                if (currentUser?.isPremiumActive() == true) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A3A2A)),
-                        border = BorderStroke(2.dp, GoldPremium)
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(4.dp, RoundedCornerShape(20.dp)),
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, BorderSubtle)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(18.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Text("✅ Premium Active", color = GoldPremium, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.VerifiedUser, null, tint = Color(0xFF10B981), modifier = Modifier.size(22.dp))
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Text("100% Secure Razorpay Checkout", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = TextDark)
+                            Text("Instant activation & automatic prorated upgrade calculation.", fontSize = 11.sp, color = TextMuted)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(36.dp))
+        }
+    }
+}
+
+@Composable
+fun PricingCardCarouselItem(
+    plan: PricingPlan,
+    isCurrentActive: Boolean,
+    isUpgrade: Boolean,
+    proratedText: String?,
+    onSelect: () -> Unit
+) {
+    val secondaryTextColor = if (plan.isPopular || plan.id == "pro") Color(0xFF94A3B8) else Color(0xFF64748B)
+    val dividerColor = if (plan.isPopular || plan.id == "pro") Color(0xFF334155) else Color(0xFFE2E8F0)
+
+    Surface(
+        modifier = Modifier
+            .width(290.dp)
+            .shadow(
+                elevation = if (isCurrentActive) 14.dp else if (plan.isPopular) 12.dp else 6.dp,
+                shape = RoundedCornerShape(24.dp),
+                ambientColor = plan.buttonColor.copy(alpha = 0.25f)
+            ),
+        shape = RoundedCornerShape(24.dp),
+        color = plan.cardColor,
+        border = if (isCurrentActive) BorderStroke(2.5.dp, Color(0xFF10B981)) else if (plan.isPopular) BorderStroke(2.dp, Color(0xFF38BDF8)) else BorderStroke(1.dp, Color(0xFFE2E8F0))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(plan.backgroundBrush)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Top Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = plan.subtitle.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = plan.buttonColor,
+                        letterSpacing = 1.sp
+                    )
+
+                    if (isCurrentActive) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = Color(0xFF10B981)
+                        ) {
                             Text(
-                                "Plan: ${(currentUser?.premiumPlan ?: "Free").replace("_", " ").uppercase()}",
-                                color = TextWhite,
-                                fontSize = 13.sp
+                                text = "ACTIVE ✓",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Black,
+                                color = Color.White,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                            )
+                        }
+                    } else if (plan.badgeText != null) {
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = plan.buttonColor.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = plan.badgeText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = plan.buttonColor,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
                             )
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Text("Choose Your Plan", color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                plans.forEach { plan ->
-                    val isCurrentPlan = plan.id == currentUser?.premiumPlan
+                Text(
+                    text = plan.name,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Black,
+                    color = plan.textColor
+                )
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(20.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isCurrentPlan) Color(0xFF1A3A2A) else SurfaceDark
-                        ),
-                        border = BorderStroke(
-                            2.dp,
-                            if (isCurrentPlan) GoldPremium else BorderGray.copy(alpha = 0.3f)
-                        )
-                    ) {
-                        Column(modifier = Modifier.padding(24.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(plan.name, color = TextWhite, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                                    Text(plan.description, color = TextGray, fontSize = 12.sp)
-                                }
-                                Text("₹${plan.price}", color = PrimaryGreen, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-                            }
+                Spacer(modifier = Modifier.height(2.dp))
 
-                            Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = plan.description,
+                    fontSize = 12.sp,
+                    color = secondaryTextColor,
+                    lineHeight = 16.sp,
+                    maxLines = 2
+                )
 
-                            plan.features.forEach { feature ->
-                                Row(
-                                    modifier = Modifier.padding(vertical = 4.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.CheckCircle, null, tint = PrimaryGreen, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(feature, color = TextWhite.copy(alpha = 0.8f), fontSize = 13.sp)
-                                }
-                            }
+                Spacer(modifier = Modifier.height(14.dp))
 
-                            Spacer(modifier = Modifier.height(20.dp))
+                // Price & Prorated Difference
+                Row(
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = plan.price,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Black,
+                        color = plan.textColor,
+                        letterSpacing = (-1).sp
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = plan.period,
+                        fontSize = 12.sp,
+                        color = secondaryTextColor,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(bottom = 5.dp)
+                    )
 
-                            Button(
-                                onClick = { if (!isCurrentPlan) handlePayment(plan) },
-                                modifier = Modifier.fillMaxWidth().height(50.dp),
-                                enabled = !isCurrentPlan && !isProcessingPayment,
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = if (isCurrentPlan) GoldPremium.copy(alpha = 0.3f) else PrimaryGreen,
-                                    contentColor = Color.Black
-                                ),
-                                shape = RoundedCornerShape(14.dp)
-                            ) {
-                                if (isProcessingPayment) {
-                                    CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.Black, strokeWidth = 2.dp)
-                                } else {
-                                    Text(
-                                        if (isCurrentPlan) "Current Plan" else "Pay ₹${plan.price} via UPI",
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
+                    if (proratedText != null) {
+                        Spacer(modifier = Modifier.weight(1f))
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = Color(0xFF10B981).copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = proratedText,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF059669),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+                HorizontalDivider(color = dividerColor)
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Features
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.height(150.dp)
+                ) {
+                    plan.features.forEach { feature ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = null,
+                                tint = if (plan.isPopular || plan.id == "pro") Color(0xFF38BDF8) else Color(0xFF10B981),
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = feature,
+                                fontSize = 12.sp,
+                                color = plan.textColor,
+                                fontWeight = FontWeight.Medium,
+                                maxLines = 1
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Button
+                Button(
+                    onClick = onSelect,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isCurrentActive) Color(0xFF10B981) else plan.buttonColor,
+                        contentColor = Color.White
+                    ),
+                    enabled = !isCurrentActive,
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Text(
+                        text = when {
+                            isCurrentActive -> "Your Active Plan"
+                            isUpgrade -> "Upgrade Plan"
+                            else -> "Subscribe via Razorpay"
+                        },
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
             }
         }
     }

@@ -3,6 +3,7 @@ package com.dark.jobai.ui.screens.main.profile
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -27,7 +29,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dark.jobai.data.model.User
-import com.dark.jobai.ui.theme.*
 import com.dark.jobai.viewmodel.ProfileViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -55,6 +56,15 @@ fun ProfileScreen(
     var isEmailVerified by remember { mutableStateOf(auth.currentUser?.isEmailVerified ?: false) }
     var isVerificationSent by remember { mutableStateOf(false) }
     var autoApplyEnabled by remember { mutableStateOf(false) }
+
+    // --- Professional Light Theme Palette ---
+    val AppBlue = Color(0xFF0F52FF)
+    val BgLight = Color(0xFFF8FAFC)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
+    val ErrorRed = Color(0xFFEF4444)
 
     LaunchedEffect(user?.uid) {
         if (user != null) {
@@ -102,57 +112,68 @@ fun ProfileScreen(
             }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BackgroundDark)
-    ) {
-        // Header
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "My Profile",
-                color = TextWhite,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold
+    Scaffold(
+        modifier = Modifier.fillMaxSize(),
+        containerColor = BgLight,
+        topBar = {
+            CenterAlignedTopAppBar(
+                title = {
+                    Text(
+                        "Account Profile",
+                        style = MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = (-0.5).sp
+                        ),
+                        color = TextDark
+                    )
+                },
+                actions = {
+                    IconButton(
+                        onClick = onSettingsClick,
+                        modifier = Modifier
+                            .padding(end = 8.dp)
+                            .background(SurfaceWhite, CircleShape)
+                            .border(1.dp, BorderSubtle, CircleShape)
+                            .size(38.dp)
+                    ) {
+                        Icon(Icons.Default.Settings, "Settings", tint = TextDark, modifier = Modifier.size(18.dp))
+                    }
+                },
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    containerColor = BgLight,
+                    titleContentColor = TextDark
+                )
             )
-
-            Row {
-                IconButton(onClick = onSettingsClick, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Default.Settings, "Settings", tint = TextGray)
-                }
-                IconButton(onClick = onEditProfileClick, modifier = Modifier.size(40.dp)) {
-                    Icon(Icons.Default.Edit, "Edit", tint = PrimaryGreen)
-                }
-            }
         }
-
+    ) { paddingValues ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = PrimaryGreen)
+                CircularProgressIndicator(color = AppBlue, strokeWidth = 3.dp)
             }
         } else if (user == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("Profile not found", color = TextGray, fontSize = 16.sp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.PersonOff, null, tint = TextMuted, modifier = Modifier.size(64.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("Profile not found", color = TextMuted, style = MaterialTheme.typography.bodyLarge)
+                }
             }
         } else {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Profile Header
-                ProfileHeader(user = user!!, isEmailVerified = isEmailVerified)
+                // 1. Gorgeous Profile Header Card
+                ProfileHeaderCard(user = user!!, isEmailVerified = isEmailVerified, onEditClick = onEditProfileClick)
 
-                Spacer(modifier = Modifier.height(20.dp))
+                // 2. Interactive Stats Section
+                ProfileStatsSection(user = user!!)
 
-                // Email Verification
+                // 3. Email Verification Banner (If needed)
                 if (!isEmailVerified) {
                     EmailVerificationCard(
                         isVerificationSent = isVerificationSent,
@@ -171,197 +192,296 @@ fun ProfileScreen(
                             }
                         }
                     )
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
-                // Quick Actions
+                // 4. Subscription Status with Expiry Countdown / Renewal Alert
+                if (user!!.isPremiumActive()) {
+                    ActiveSubscriptionCard(user = user!!, onRenewClick = onUpgradeClick)
+                } else {
+                    HighConversionJobBanner(onUpgradeClick = onUpgradeClick)
+                }
+
+                // 5. Quick Actions Card
                 QuickActionsCard(
                     isPremium = user!!.isPremiumActive(),
                     isEmailVerified = isEmailVerified,
                     autoApplyEnabled = autoApplyEnabled,
                     onEmailTemplateClick = onEmailTemplateClick,
                     onEditProfileClick = onEditProfileClick,
-                    onUpgradeClick = onUpgradeClick,
                     onAutoApplyToggle = { toggleAutoApply(it) }
                 )
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Premium Status
-                if (user!!.isPremiumActive()) {
-                    PremiumStatusCard(user = user!!)
-                    Spacer(modifier = Modifier.height(20.dp))
+                // 6. Professional Summary
+                ProfileSectionCard(title = "Professional Summary", icon = Icons.Default.Description) {
+                    Text(
+                        text = user!!.bio.ifEmpty { "Add a bio to highlight your professional background and career goals." },
+                        fontSize = 13.sp,
+                        color = if (user!!.bio.isEmpty()) TextMuted else TextDark,
+                        lineHeight = 20.sp
+                    )
                 }
 
-                // Stats
-                ProfileStats(user = user!!)
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Skills - FIXED with simple rows
+                // 7. Skills & Expertise
                 if (user!!.skills.isNotEmpty()) {
-                    SectionCard(title = "Skills", icon = Icons.Default.Star) {
+                    ProfileSectionCard(title = "Skills & Expertise", icon = Icons.Default.AutoAwesome) {
                         SkillsGrid(skills = user!!.skills)
                     }
-                    Spacer(modifier = Modifier.height(20.dp))
                 }
 
-                // Contact Info
-                SectionCard(title = "Contact Information", icon = Icons.Default.Contacts) {
-                    InfoRow(Icons.Default.Email, "Email", user!!.email)
-                    if (user!!.phone.isNotEmpty()) {
-                        InfoRow(Icons.Default.Phone, "Phone", user!!.phone)
-                    }
-                    if (user!!.location.isNotEmpty()) {
-                        InfoRow(Icons.Default.LocationOn, "Location", user!!.location)
+                // 8. Contact Information
+                ProfileSectionCard(title = "Contact Information", icon = Icons.Default.Contacts) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        InfoRow(Icons.Default.Email, "Email Address", user!!.email)
+                        if (user!!.phone.isNotEmpty()) {
+                            InfoRow(Icons.Default.Phone, "Phone Number", user!!.phone)
+                        }
+                        if (user!!.location.isNotEmpty()) {
+                            InfoRow(Icons.Default.LocationOn, "Current Location", user!!.location)
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Job Preferences
-                SectionCard(title = "Job Preferences", icon = Icons.Default.Work) {
-                    if (user!!.preferredRole.isNotEmpty()) {
-                        InfoRow(Icons.Default.Badge, "Preferred Role", user!!.preferredRole)
+                // 9. Master Profile Details (CTC, Notice Period, Education)
+                ProfileSectionCard(title = "Master ATS Profile Details", icon = Icons.Default.Badge) {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if (user!!.preferredRole.isNotEmpty()) {
+                            InfoRow(Icons.Default.TrackChanges, "Target Role", user!!.preferredRole)
+                        }
+                        if (user!!.experienceYears.isNotEmpty()) {
+                            InfoRow(Icons.Default.Timeline, "Experience", "${user!!.experienceYears} Years")
+                        }
+                        if (user!!.currentCompany.isNotEmpty()) {
+                            InfoRow(Icons.Default.Business, "Current Company", user!!.currentCompany)
+                        }
+                        if (user!!.highestDegree.isNotEmpty()) {
+                            InfoRow(Icons.Default.School, "Education", user!!.highestDegree)
+                        }
+                        if (user!!.currentCtc.isNotEmpty()) {
+                            InfoRow(Icons.Default.Payments, "Current CTC", user!!.currentCtc)
+                        }
+                        if (user!!.expectedCtc.isNotEmpty()) {
+                            InfoRow(Icons.Default.Savings, "Expected CTC", user!!.expectedCtc)
+                        }
+                        if (user!!.noticePeriod.isNotEmpty()) {
+                            InfoRow(Icons.Default.Alarm, "Notice Period", user!!.noticePeriod)
+                        }
                     }
-                    if (user!!.experienceYears.isNotEmpty()) {
-                        InfoRow(Icons.Default.Timeline, "Experience", "${user!!.experienceYears} years")
-                    }
-                    InfoRow(Icons.Default.Business, "Work Type", user!!.workPreference)
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
-                // Logout
-                OutlinedButton(
+                // 10. Logout Button
+                Button(
                     onClick = {
                         auth.signOut()
                         onLogout()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(50.dp),
-                    border = BorderStroke(1.dp, ErrorRed),
-                    shape = RoundedCornerShape(14.dp)
+                        .height(52.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SurfaceWhite,
+                        contentColor = ErrorRed
+                    ),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f)),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null, tint = ErrorRed, modifier = Modifier.size(20.dp))
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Logout", color = ErrorRed, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text("Sign Out", fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(40.dp))
             }
         }
     }
 }
 
 // ====================================================================
-// SKILLS GRID (Fixed - No FlowRow needed)
+// 1. PROFILE HEADER CARD
 // ====================================================================
 
 @Composable
-fun SkillsGrid(skills: List<String>) {
-    val chunkedSkills = skills.take(9).chunked(3)
+fun ProfileHeaderCard(user: User, isEmailVerified: Boolean, onEditClick: () -> Unit) {
+    val AppBlue = Color(0xFF0F52FF)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
+    val GoldPremium = Color(0xFFD97706)
+    val InfoBlue = Color(0xFF3B82F6)
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        chunkedSkills.forEach { rowSkills ->
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, RoundedCornerShape(24.dp), ambientColor = AppBlue.copy(alpha = 0.08f)),
+        shape = RoundedCornerShape(24.dp),
+        color = SurfaceWhite,
+        border = BorderStroke(1.dp, BorderSubtle)
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                rowSkills.forEach { skill ->
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(PrimaryGreen.copy(alpha = 0.15f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
+                Box(
+                    modifier = Modifier
+                        .size(76.dp)
+                        .clip(CircleShape)
+                        .background(
+                            Brush.sweepGradient(
+                                if (user.isPremiumActive())
+                                    listOf(GoldPremium, Color(0xFFFBBF24), GoldPremium)
+                                else
+                                    listOf(AppBlue, Color(0xFF60A5FA), AppBlue)
+                            )
+                        )
+                        .padding(2.5.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceWhite),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (user.profileImageUrl.isNotEmpty()) {
+                        AsyncImage(
+                            model = user.profileImageUrl,
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape)
+                        )
+                    } else {
                         Text(
-                            skill,
-                            color = PrimaryGreen,
+                            user.fullName.take(1).uppercase(),
+                            color = if (user.isPremiumActive()) GoldPremium else AppBlue,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            user.fullName.ifEmpty { "Guest User" },
+                            color = TextDark,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (isEmailVerified) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                Icons.Default.Verified,
+                                contentDescription = "Verified",
+                                tint = InfoBlue,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
+                    if (user.headline.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            user.headline,
+                            color = AppBlue,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.LocationOn, null, tint = TextMuted, modifier = Modifier.size(12.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            user.location.ifEmpty { "Location not set" },
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
+                    }
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            HorizontalDivider(color = BorderSubtle)
+            Spacer(modifier = Modifier.height(14.dp))
+
+            OutlinedButton(
+                onClick = onEditClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(42.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, BorderSubtle),
+                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFF8FAFC))
+            ) {
+                Icon(Icons.Default.Edit, null, tint = TextDark, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Edit Master Profile & Resume", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
 }
 
 // ====================================================================
-// PROFILE HEADER
+// 2. PROFILE STATS SECTION
 // ====================================================================
 
 @Composable
-fun ProfileHeader(user: User, isEmailVerified: Boolean) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .size(80.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(
-                        colors = if (user.isPremiumActive())
-                            listOf(GoldPremium, Color(0xFFFFA000))
-                        else
-                            listOf(PrimaryGreen, Color(0xFF00D2A0))
-                    )
-                ),
-            contentAlignment = Alignment.Center
+fun ProfileStatsSection(user: User) {
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val BorderSubtle = Color(0xFFE2E8F0)
+    val AppBlue = Color(0xFF0F52FF)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.03f)),
+        shape = RoundedCornerShape(20.dp),
+        color = SurfaceWhite,
+        border = BorderStroke(1.dp, BorderSubtle)
+    ) {
+        Row(
+            modifier = Modifier.padding(vertical = 16.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            if (user.profileImageUrl.isNotEmpty()) {
-                AsyncImage(
-                    model = user.profileImageUrl,
-                    contentDescription = "Profile",
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                Text(
-                    user.fullName.take(1).uppercase(),
-                    color = Color.Black,
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.width(16.dp))
-
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    user.fullName.ifEmpty { "Your Name" },
-                    color = TextWhite,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                if (isEmailVerified) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        Icons.Default.Verified,
-                        contentDescription = "Verified",
-                        tint = InfoBlue,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            if (user.headline.isNotEmpty()) {
-                Text(user.headline, color = PrimaryGreen, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            }
-
-            if (user.location.isNotEmpty()) {
-                Text("📍 ${user.location}", color = TextGray, fontSize = 12.sp)
-            }
+            StatBox(user.emailsSent.toString(), "Applications", Icons.Default.Send, AppBlue)
+            VerticalDivider(color = BorderSubtle, modifier = Modifier.height(28.dp))
+            StatBox(user.getRemainingEmails().toString(), "Remaining", Icons.Default.Mail, AppBlue)
+            VerticalDivider(color = BorderSubtle, modifier = Modifier.height(28.dp))
+            StatBox(user.skills.size.toString(), "Skills", Icons.Default.Bolt, AppBlue)
         }
     }
 }
 
+@Composable
+fun StatBox(value: String, label: String, icon: ImageVector, color: Color) {
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = color, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(value, color = TextDark, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(label, color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
 // ====================================================================
-// EMAIL VERIFICATION CARD
+// 3. EMAIL VERIFICATION CARD
 // ====================================================================
 
 @Composable
@@ -370,45 +490,54 @@ fun EmailVerificationCard(
     onSendVerification: () -> Unit,
     onRefresh: () -> Unit
 ) {
-    Card(
+    val WarningOrange = Color(0xFFF59E0B)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = WarningOrange.copy(alpha = 0.1f)),
+        shape = RoundedCornerShape(20.dp),
+        color = WarningOrange.copy(alpha = 0.08f),
         border = BorderStroke(1.dp, WarningOrange.copy(alpha = 0.5f))
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Warning, null, tint = WarningOrange, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Email Not Verified", color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("Verify your email to unlock all features", color = TextGray, fontSize = 11.sp)
-                }
+                Icon(Icons.Default.Error, null, tint = WarningOrange, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    "Email Verification Required",
+                    color = TextDark,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
-
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                "Please verify your email address to enable AI Auto-Apply features.",
+                color = TextMuted,
+                fontSize = 12.sp
+            )
             Spacer(modifier = Modifier.height(12.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = onSendVerification,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = WarningOrange, contentColor = Color.Black),
-                    shape = RoundedCornerShape(10.dp)
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = WarningOrange, contentColor = Color.White),
+                    shape = RoundedCornerShape(10.dp),
+                    enabled = !isVerificationSent,
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
-                    Text(
-                        if (isVerificationSent) "Resend Email" else "Send Verification",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Text(if (isVerificationSent) "Verification Sent" else "Verify Email", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
-
                 OutlinedButton(
                     onClick = onRefresh,
-                    modifier = Modifier.weight(1f),
-                    border = BorderStroke(1.dp, InfoBlue),
+                    modifier = Modifier.weight(1f).height(40.dp),
+                    border = BorderStroke(1.dp, WarningOrange),
+                    colors = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceWhite, contentColor = WarningOrange),
                     shape = RoundedCornerShape(10.dp)
                 ) {
-                    Text("I've Verified", fontSize = 12.sp, color = InfoBlue, fontWeight = FontWeight.Bold)
+                    Text("I've Verified", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -416,7 +545,151 @@ fun EmailVerificationCard(
 }
 
 // ====================================================================
-// QUICK ACTIONS
+// 4. ACTIVE SUBSCRIPTION WITH EXPIRY COUNTDOWN
+// ====================================================================
+
+@Composable
+fun ActiveSubscriptionCard(user: User, onRenewClick: () -> Unit) {
+    val GoldPremium = Color(0xFFD97706)
+    val TextDark = Color(0xFF0F172A)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+
+    // Calculate remaining days if premiumUntil exists
+    val currentTime = System.currentTimeMillis()
+    val expiryTime = user.premiumExpiry
+    val diffDays = if (expiryTime > currentTime) ((expiryTime - currentTime) / (1000 * 60 * 60 * 24)).toInt() else 0
+
+    val isExpiringSoon = diffDays in 0..3
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = SurfaceWhite,
+        border = BorderStroke(1.dp, if (isExpiringSoon) Color(0xFFEF4444) else GoldPremium.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        if (isExpiringSoon)
+                            listOf(Color(0xFFFEF2F2), Color(0xFFFEE2E2))
+                        else
+                            listOf(Color(0xFFFFFAEB), Color(0xFFFEF3C7))
+                    )
+                )
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background((if (isExpiringSoon) Color(0xFFEF4444) else GoldPremium).copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isExpiringSoon) Icons.Default.Warning else Icons.Default.Verified,
+                    contentDescription = null,
+                    tint = if (isExpiringSoon) Color(0xFFEF4444) else GoldPremium,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (isExpiringSoon) "⚠️ Plan Expiring in $diffDays Days!" else "Active Plan: ${user.premiumPlan.uppercase()} ⭐",
+                    color = TextDark,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = if (isExpiringSoon) "Renew now to avoid service interruption." else "Unlimited AI Auto-Apply & Priority Queue enabled.",
+                    color = if (isExpiringSoon) Color(0xFF991B1B) else GoldPremium,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            if (isExpiringSoon) {
+                Button(
+                    onClick = onRenewClick,
+                    modifier = Modifier.height(36.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Text("Renew", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+            }
+        }
+    }
+}
+
+// ====================================================================
+// 4b. HIGH CONVERSION UPGRADE BANNER
+// ====================================================================
+
+@Composable
+fun HighConversionJobBanner(onUpgradeClick: () -> Unit) {
+    val AppBlue = Color(0xFF0F52FF)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = AppBlue.copy(alpha = 0.1f))
+            .clickable(onClick = onUpgradeClick),
+        shape = RoundedCornerShape(20.dp),
+        color = SurfaceWhite,
+        border = BorderStroke(1.5.dp, AppBlue.copy(alpha = 0.4f))
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE))
+                    )
+                )
+                .padding(18.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .background(AppBlue.copy(alpha = 0.15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.WorkspacePremium, null, tint = AppBlue, modifier = Modifier.size(22.dp))
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    "Land Interviews 5x Faster 🚀",
+                    color = TextDark,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    "Unlock AI Auto-Apply & 500+ monthly applications today!",
+                    color = TextMuted,
+                    fontSize = 11.sp
+                )
+            }
+
+            Icon(Icons.Default.ChevronRight, null, tint = AppBlue, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+// ====================================================================
+// 5. QUICK ACTIONS CARD
 // ====================================================================
 
 @Composable
@@ -426,192 +699,173 @@ fun QuickActionsCard(
     autoApplyEnabled: Boolean,
     onEmailTemplateClick: () -> Unit,
     onEditProfileClick: () -> Unit,
-    onUpgradeClick: () -> Unit,
     onAutoApplyToggle: (Boolean) -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
-    ) {
-        Column(modifier = Modifier.padding(8.dp)) {
-            Text(
-                "Quick Actions",
-                color = TextGray,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-            )
+    val AppBlue = Color(0xFF0F52FF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
 
-            HorizontalDivider(color = BorderGray.copy(alpha = 0.3f))
-
-            // Auto-Apply (only for premium + verified)
-            if (isPremium && isEmailVerified) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp))
-                            .background(if (autoApplyEnabled) SuccessGreen.copy(alpha = 0.15f) else SurfaceElevated),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, null, tint = if (autoApplyEnabled) SuccessGreen else TextGray, modifier = Modifier.size(20.dp))
-                    }
+    ProfileSectionCard(title = "Quick Actions", icon = Icons.Default.Bolt) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF8FAFC))
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Icon(Icons.Default.SmartToy, null, tint = AppBlue, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Auto-Apply", color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                        Text("Daily 10 matching jobs auto-applied", color = TextGray, fontSize = 11.sp)
+                    Column {
+                        Text("AI Auto-Apply", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (!isPremium) "Requires Premium Plan" else if (!isEmailVerified) "Verify Email Required" else "Auto-apply to matching jobs",
+                            color = TextMuted,
+                            fontSize = 11.sp
+                        )
                     }
-                    Switch(
-                        checked = autoApplyEnabled,
-                        onCheckedChange = onAutoApplyToggle,
-                        colors = SwitchDefaults.colors(checkedThumbColor = Color.Black, checkedTrackColor = SuccessGreen)
-                    )
                 }
-                HorizontalDivider(color = BorderGray.copy(alpha = 0.3f))
+                Switch(
+                    checked = autoApplyEnabled,
+                    onCheckedChange = onAutoApplyToggle,
+                    enabled = isPremium && isEmailVerified,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = AppBlue,
+                        uncheckedThumbColor = TextMuted,
+                        uncheckedTrackColor = BorderSubtle,
+                        uncheckedBorderColor = Color.Transparent
+                    )
+                )
             }
 
-            QuickActionRow(Icons.Default.Email, "Email Template", "Edit your auto-apply template", PrimaryGreen, onEmailTemplateClick)
-            HorizontalDivider(color = BorderGray.copy(alpha = 0.3f))
-            QuickActionRow(Icons.Default.Edit, "Edit Profile", "Update your information", InfoBlue, onEditProfileClick)
-
-            if (!isPremium) {
-                HorizontalDivider(color = BorderGray.copy(alpha = 0.3f))
-                QuickActionRow(Icons.Default.Star, "Upgrade to Premium", "Unlock all features", GoldPremium, onUpgradeClick)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFF8FAFC))
+                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
+                    .clickable(onClick = onEmailTemplateClick)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.MailOutline, null, tint = AppBlue, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(12.dp))
+                Text("Email Templates", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Spacer(modifier = Modifier.weight(1f))
+                Icon(Icons.Default.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(16.dp))
             }
         }
     }
 }
 
+// ====================================================================
+// SHARED SECTION CARD
+// ====================================================================
+
 @Composable
-fun QuickActionRow(
-    icon: ImageVector,
+fun ProfileSectionCard(
     title: String,
-    subtitle: String,
-    iconColor: Color,
-    onClick: () -> Unit
+    icon: ImageVector,
+    content: @Composable () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            modifier = Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).background(iconColor.copy(alpha = 0.15f)),
-            contentAlignment = Alignment.Center
+    val AppBlue = Color(0xFF0F52FF)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val BorderSubtle = Color(0xFFE2E8F0)
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 8.dp)
         ) {
-            Icon(icon, null, tint = iconColor, modifier = Modifier.size(20.dp))
-        }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = TextWhite, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = TextGray, fontSize = 11.sp)
-        }
-        Icon(Icons.Default.ChevronRight, null, tint = TextGray, modifier = Modifier.size(20.dp))
-    }
-}
-
-// ====================================================================
-// PREMIUM STATUS
-// ====================================================================
-
-@Composable
-fun PremiumStatusCard(user: User) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFF1A3A2A)),
-        border = BorderStroke(2.dp, GoldPremium)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Star, null, tint = GoldPremium, modifier = Modifier.size(24.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Premium Active", color = GoldPremium, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            val progress = if (user.emailLimit > 0) (user.emailsSent.toFloat() / user.emailLimit.toFloat()).coerceIn(0f, 1f) else 0f
-
-            Text("Email Usage: ${user.emailsSent} / ${user.emailLimit}", color = TextWhite, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
-                color = GoldPremium,
-                trackColor = SurfaceElevated
+            Icon(icon, null, tint = AppBlue, modifier = Modifier.size(16.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                title,
+                color = TextDark,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text("Remaining: ${user.getRemainingEmails()} emails", color = TextGray, fontSize = 11.sp)
         }
-    }
-}
-
-// ====================================================================
-// STATS
-// ====================================================================
-
-@Composable
-fun ProfileStats(user: User) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SurfaceDark).padding(20.dp),
-        horizontalArrangement = Arrangement.SpaceEvenly
-    ) {
-        StatItem(user.emailLimit.toString(), "Email Limit")
-        VerticalDivider(color = BorderGray, modifier = Modifier.height(30.dp))
-        StatItem(user.emailsSent.toString(), "Emails Sent")
-        VerticalDivider(color = BorderGray, modifier = Modifier.height(30.dp))
-        StatItem(user.skills.size.toString(), "Skills")
-    }
-}
-
-@Composable
-fun StatItem(value: String, label: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, color = PrimaryGreen, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(label, color = TextGray, fontSize = 10.sp)
-    }
-}
-
-// ====================================================================
-// SECTION CARD
-// ====================================================================
-
-@Composable
-fun SectionCard(title: String, icon: ImageVector, content: @Composable () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = SurfaceDark)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, tint = PrimaryGreen, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(title, color = TextWhite, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.03f)),
+            shape = RoundedCornerShape(20.dp),
+            color = SurfaceWhite,
+            border = BorderStroke(1.dp, BorderSubtle)
+        ) {
+            Column(modifier = Modifier.padding(18.dp)) {
+                content()
             }
-            Spacer(modifier = Modifier.height(12.dp))
-            content()
         }
     }
 }
-
-// ====================================================================
-// INFO ROW
-// ====================================================================
 
 @Composable
 fun InfoRow(icon: ImageVector, label: String, value: String) {
+    val AppBlue = Color(0xFF0F52FF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+
     Row(
         modifier = Modifier.padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = TextGray, modifier = Modifier.size(16.dp))
-        Spacer(modifier = Modifier.width(8.dp))
+        Surface(
+            modifier = Modifier.size(34.dp),
+            shape = RoundedCornerShape(10.dp),
+            color = Color(0xFFF1F5F9)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = AppBlue, modifier = Modifier.size(16.dp))
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
         Column {
-            Text(label, color = TextGray, fontSize = 10.sp)
-            Text(value, color = TextWhite, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(label, color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+            Spacer(modifier = Modifier.height(1.dp))
+            Text(
+                value,
+                color = TextDark,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun SkillsGrid(skills: List<String>) {
+    val AppBlue = Color(0xFF0F52FF)
+
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        skills.forEach { skill ->
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(AppBlue.copy(alpha = 0.08f))
+                    .border(1.dp, AppBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
+                    .padding(horizontal = 10.dp, vertical = 5.dp)
+            ) {
+                Text(
+                    skill,
+                    color = AppBlue,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }

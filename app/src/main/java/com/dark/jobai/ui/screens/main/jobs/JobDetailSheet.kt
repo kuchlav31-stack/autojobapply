@@ -1,8 +1,6 @@
 package com.dark.jobai.ui.screens.main.jobs
 
-import android.content.Intent
-import android.net.Uri
-import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -17,14 +15,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dark.autojobapply.InfoTag
 import com.dark.jobai.data.model.Job
-import com.dark.jobai.ui.theme.*
 import com.dark.jobai.util.Formatters
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,10 +32,19 @@ fun JobDetailSheet(
     onEmailApply: () -> Unit = {},
     isEmailSending: Boolean = false
 ) {
+    // --- Professional Light Theme Palette ---
+    val AppBlue = Color(0xFF0F52FF)
+    val SurfaceWhite = Color(0xFFFFFFFF)
+    val TextDark = Color(0xFF0F172A)
+    val TextMuted = Color(0xFF64748B)
+    val BorderSubtle = Color(0xFFE2E8F0)
+
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = SurfaceDark,
-        contentColor = TextWhite
+        containerColor = SurfaceWhite,
+        contentColor = TextDark,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        tonalElevation = 8.dp
     ) {
         Column(
             modifier = Modifier
@@ -47,7 +52,7 @@ fun JobDetailSheet(
                 .verticalScroll(rememberScrollState())
                 .padding(24.dp)
         ) {
-            // Company Info
+            // Company Info Header
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -66,94 +71,101 @@ fun JobDetailSheet(
                             .clip(RoundedCornerShape(14.dp))
                             .background(
                                 Brush.linearGradient(
-                                    colors = listOf(PrimaryGreen, Color(0xFF00D2A0))
+                                    colors = listOf(Color(0xFFE2E8F0), Color(0xFFF1F5F9))
                                 )
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             job.company.take(1).uppercase(),
-                            color = Color.Black,
-                            fontSize = 24.sp,
+                            color = AppBlue,
+                            fontSize = 22.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(14.dp))
 
                 Column {
                     Text(
                         job.company,
-                        color = PrimaryGreen,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold
+                        color = AppBlue,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         job.title,
-                        color = TextWhite,
+                        color = TextDark,
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 22.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Info Tags
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 InfoTag(Icons.Default.LocationOn, job.location)
-                InfoTag(Icons.Default.Work, job.workType)
+                InfoTag(Icons.Default.WorkOutline, job.workType)
                 InfoTag(Icons.Default.Payments, Formatters.formatSalary(job.salary))
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            HorizontalDivider(color = BorderGray.copy(alpha = 0.3f))
+            HorizontalDivider(color = BorderSubtle)
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
-            // Description
+            // Description Section
             Text(
                 "Job Description",
-                color = TextGray,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
+                color = TextMuted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
             )
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 job.description.ifEmpty { "No description available" },
-                color = TextWhite.copy(alpha = 0.8f),
+                color = TextDark.copy(alpha = 0.85f),
                 fontSize = 14.sp,
-                lineHeight = 20.sp
+                lineHeight = 22.sp
             )
 
-            // Contact Email
+            // Contact Email Section
             if (job.hasEmail && job.contactEmail.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     "Contact Email",
-                    color = TextGray,
+                    color = TextMuted,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     job.contactEmail,
-                    color = PrimaryGreen,
-                    fontSize = 14.sp
+                    color = AppBlue,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
 
-            // Tags
+            // Skills / Tags Section
             if (job.tags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "Skills",
-                    color = TextGray,
+                    "Required Skills",
+                    color = TextMuted,
                     fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(
@@ -163,12 +175,12 @@ fun JobDetailSheet(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(PrimaryGreen.copy(alpha = 0.15f))
-                                .padding(horizontal = 10.dp, vertical = 4.dp)
+                                .background(AppBlue.copy(alpha = 0.08f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             Text(
                                 tag,
-                                color = PrimaryGreen,
+                                color = AppBlue,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -177,59 +189,61 @@ fun JobDetailSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Email Apply
+                // Email Apply Button
                 if (job.hasEmail && job.contactEmail.isNotEmpty()) {
                     OutlinedButton(
                         onClick = onEmailApply,
                         modifier = Modifier
                             .weight(1f)
-                            .height(50.dp),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, PrimaryGreen),
-                        shape = RoundedCornerShape(14.dp)
+                            .height(52.dp),
+                        border = BorderStroke(1.5.dp, AppBlue),
+                        shape = RoundedCornerShape(14.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceWhite)
                     ) {
                         if (isEmailSending) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
-                                color = PrimaryGreen,
+                                color = AppBlue,
                                 strokeWidth = 2.dp
                             )
                         } else {
-                            Icon(Icons.Default.Email, null, tint = PrimaryGreen, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Default.Email, null, tint = AppBlue, modifier = Modifier.size(18.dp))
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("Email", color = PrimaryGreen, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Email", color = AppBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
 
-                // Apply Now
+                // Apply Now Button
                 Button(
                     onClick = onApply,
                     modifier = Modifier
                         .weight(1f)
-                        .height(50.dp),
+                        .height(52.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryGreen,
-                        contentColor = Color.Black
+                        containerColor = AppBlue,
+                        contentColor = Color.White
                     ),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = RoundedCornerShape(14.dp),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                 ) {
-                    Text("Apply Now", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Apply Now", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Posted date
+            // Posted Date Footer
             Text(
                 "Posted: ${Formatters.formatTimeAgo(job.postedAt)}",
-                color = TextGray.copy(alpha = 0.6f),
+                color = TextMuted.copy(alpha = 0.7f),
                 fontSize = 11.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )

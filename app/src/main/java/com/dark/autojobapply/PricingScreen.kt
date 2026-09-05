@@ -1,5 +1,4 @@
 package com.dark.autojobapply
-
 import android.app.Activity
 import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
@@ -29,7 +28,6 @@ import com.dark.jobai.ui.theme.TextGray
 import com.dark.jobai.ui.theme.TextWhite
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PricingScreen(

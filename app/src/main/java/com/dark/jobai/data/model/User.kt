@@ -13,10 +13,12 @@ data class User(
     val skills: List<String> = emptyList(),
     val experienceYears: String = "",
     val preferredRole: String = "",
+    val currentCompany: String = "",          // NEW: Master Profile Field
+    val highestDegree: String = "",           // NEW: Master Profile Field
     val workPreference: String = "Remote",
-    val jobType: String = "All",              // NEW: All, Remote, On-site, Hybrid
-    val preferredLocations: List<String> = emptyList(),  // NEW
-    val salaryRange: String = "",              // NEW
+    val jobType: String = "All",
+    val preferredLocations: List<String> = emptyList(),
+    val salaryRange: String = "",
     val resumeUrl: String = "",
     val resumeText: String = "",
     val profileImageUrl: String = "",
@@ -24,8 +26,8 @@ data class User(
     val githubUrl: String = "",
     val portfolioUrl: String = "",
     val twitterUrl: String = "",
-    val currentSalary: String = "",
-    val expectedSalary: String = "",
+    val currentCtc: String = "",              // NEW: Master Profile Field
+    val expectedCtc: String = "",             // NEW: Master Profile Field
     val noticePeriod: String = "",
     val profileCompleted: Boolean = false,
     val isPremium: Boolean = false,
@@ -55,6 +57,8 @@ data class User(
                 skills = (doc.get("skills") as? List<String>) ?: emptyList(),
                 experienceYears = doc.getString("experienceYears") ?: "",
                 preferredRole = doc.getString("preferredRole") ?: "",
+                currentCompany = doc.getString("currentCompany") ?: "",
+                highestDegree = doc.getString("highestDegree") ?: "",
                 workPreference = doc.getString("workPreference") ?: "Remote",
                 jobType = doc.getString("jobType") ?: "All",
                 preferredLocations = (doc.get("preferredLocations") as? List<String>) ?: emptyList(),
@@ -66,13 +70,13 @@ data class User(
                 githubUrl = doc.getString("githubUrl") ?: "",
                 portfolioUrl = doc.getString("portfolioUrl") ?: "",
                 twitterUrl = doc.getString("twitterUrl") ?: "",
-                currentSalary = doc.getString("currentSalary") ?: "",
-                expectedSalary = doc.getString("expectedSalary") ?: "",
+                currentCtc = doc.getString("currentCtc") ?: doc.getString("currentSalary") ?: "",
+                expectedCtc = doc.getString("expectedCtc") ?: doc.getString("expectedSalary") ?: "",
                 noticePeriod = doc.getString("noticePeriod") ?: "",
-                profileCompleted = doc.getBoolean("profileCompleted") ?: false,
-                isPremium = doc.getBoolean("isPremium") ?: false,
+                profileCompleted = doc.getBoolean("profileCompleted") ?: doc.getBoolean("isProfileCompleted") ?: false,
+                isPremium = doc.getBoolean("isPremium") ?: (doc.getString("premiumPlan") != null && doc.getString("premiumPlan") != "free"),
                 premiumPlan = doc.getString("premiumPlan") ?: "free",
-                premiumExpiry = doc.getLong("premiumExpiry") ?: 0L,
+                premiumExpiry = doc.getLong("premiumExpiry") ?: doc.getLong("premiumUntil") ?: 0L,
                 emailLimit = doc.getLong("emailLimit") ?: 0L,
                 emailsSent = doc.getLong("emailsSent") ?: 0L,
                 emailSubjectTemplate = doc.getString("emailSubjectTemplate") ?: "",
@@ -98,6 +102,8 @@ data class User(
             "skills" to skills,
             "experienceYears" to experienceYears,
             "preferredRole" to preferredRole,
+            "currentCompany" to currentCompany,
+            "highestDegree" to highestDegree,
             "workPreference" to workPreference,
             "jobType" to jobType,
             "preferredLocations" to preferredLocations,
@@ -109,8 +115,8 @@ data class User(
             "githubUrl" to githubUrl,
             "portfolioUrl" to portfolioUrl,
             "twitterUrl" to twitterUrl,
-            "currentSalary" to currentSalary,
-            "expectedSalary" to expectedSalary,
+            "currentCtc" to currentCtc,
+            "expectedCtc" to expectedCtc,
             "noticePeriod" to noticePeriod,
             "profileCompleted" to profileCompleted,
             "isPremium" to isPremium,
@@ -122,21 +128,28 @@ data class User(
             "emailBodyTemplate" to emailBodyTemplate,
             "emailAutoSend" to emailAutoSend,
             "createdAt" to createdAt,
-            "updatedAt" to updatedAt
+            "updatedAt" to updatedAt,
+            "autoApplyEnabled" to autoApplyEnabled
         )
     }
 
     fun isPremiumActive(): Boolean {
-        if (!isPremium) return false
-        if (premiumExpiry == 0L) return true
+        if (premiumPlan == "free") return false
+        if (premiumExpiry == 0L) return true // Lifetime or manual active
         return premiumExpiry > System.currentTimeMillis()
     }
 
     fun getRemainingEmails(): Long {
-        return (emailLimit - emailsSent).coerceAtLeast(0)
+        val limit = if (emailLimit > 0) emailLimit else when (premiumPlan) {
+            "starter" -> 100L
+            "pro" -> 500L
+            "unlimited" -> 5000L
+            else -> 10L
+        }
+        return (limit - emailsSent).coerceAtLeast(0)
     }
 
     fun canSendEmail(): Boolean {
-        return isPremiumActive() && getRemainingEmails() > 0
+        return isPremiumActive() || getRemainingEmails() > 0
     }
 }

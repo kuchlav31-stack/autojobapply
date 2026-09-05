@@ -20,6 +20,7 @@ class FeedRepository(
      */
     fun getFeedPostsListener(
         limit: Long = 100,
+        currentUserId: String? = null,
         onResult: (List<FeedPost>) -> Unit,
         onError: (String) -> Unit
     ) {
@@ -36,7 +37,9 @@ class FeedRepository(
                     val posts = mutableListOf<FeedPost>()
                     for (doc in snapshot.documents) {
                         try {
-                            posts.add(FeedPost.fromDocument(doc))
+                            val post = FeedPost.fromDocument(doc)
+                            // Set isLiked status for UI
+                            posts.add(post.copy(isLiked = currentUserId != null && post.likedBy.contains(currentUserId)))
                         } catch (e: Exception) {}
                     }
                     onResult(posts)
@@ -49,10 +52,13 @@ class FeedRepository(
      */
     suspend fun createPost(post: FeedPost): Boolean {
         return try {
-            feedCollection.add(post.toMap()).await()
+            android.util.Log.d("FeedRepository", "Attempting to add post to collection: ${Constants.COLLECTION_FEED}")
+            val result = feedCollection.add(post.toMap()).await()
+            android.util.Log.d("FeedRepository", "Post created successfully with ID: ${result.id}")
             true
         } catch (e: Exception) {
-            false
+            android.util.Log.e("FeedRepository", "Error creating post in Firestore", e)
+            throw e // Throwing to catch specific error in ViewModel
         }
     }
 

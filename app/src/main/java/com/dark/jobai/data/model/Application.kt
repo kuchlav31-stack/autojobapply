@@ -20,7 +20,9 @@ data class Application(
     val messageId: String = "",
     val emailSubject: String = "",
     val emailBody: String = "",
-    val applicationType: String = "Email"
+    val applicationType: String = "Email",
+    val botAuditLog: Map<String, String> = emptyMap(),
+    val botClickedSubmit: Boolean = false// "Email", "Auto", "WebForm", etc.
 ) {
     companion object {
         fun fromDocument(doc: DocumentSnapshot): Application {
@@ -42,7 +44,9 @@ data class Application(
                 messageId = doc.getString("messageId") ?: "",
                 emailSubject = doc.getString("emailSubject") ?: "",
                 emailBody = doc.getString("emailBody") ?: "",
-                applicationType = doc.getString("applicationType") ?: "Email"
+                applicationType = doc.getString("applicationType") ?: doc.getString("method") ?: "Email",
+                botAuditLog = (doc.get("botAuditLog") as? Map<String, String>) ?: emptyMap(),
+                botClickedSubmit = doc.getBoolean("botClickedSubmit") ?: false
             )
         }
     }

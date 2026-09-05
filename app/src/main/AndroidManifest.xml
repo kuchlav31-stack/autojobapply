@@ -17,6 +17,8 @@
     <!-- Camera (for profile image) -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- Notifications -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
@@ -24,9 +26,10 @@
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
-        android:icon="@drawable/posting"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@drawable/skills"
         android:label="@string/app_name"
-        android:roundIcon="@drawable/posting"
+        android:roundIcon="@drawable/skills"
         android:supportsRtl="true"
         android:theme="@style/Theme.JobAI"
         android:usesCleartextTraffic="true"

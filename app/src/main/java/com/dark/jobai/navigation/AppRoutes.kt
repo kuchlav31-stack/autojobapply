@@ -1,13 +1,15 @@
 package com.dark.jobai.navigation
 
 object AppRoutes {
-    // Auth
+    // Auth & Onboarding Carousel
     const val SPLASH = "splash"
+    const val ONBOARDING = "onboarding"
+
     const val LOGIN = "login"
     const val SIGNUP = "signup"
     const val FORGOT_PASSWORD = "forgot_password"
 
-    // Onboarding
+    // Profile Setup
     const val PROFILE_SETUP = "profile_setup"
     const val RESUME_UPLOAD = "resume_upload"
     const val EMAIL_TEMPLATE = "email_template"
@@ -26,8 +28,6 @@ object AppRoutes {
     const val WEB_VIEW = "web_view/{url}"
 
     // Helper functions
-
-
     fun jobDetail(jobId: String) = "job_detail/$jobId"
     fun applicationDetail(appId: String) = "application_detail/$appId"
     fun webView(url: String) = "web_view/${android.net.Uri.encode(url)}"

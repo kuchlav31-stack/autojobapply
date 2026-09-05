@@ -52,7 +52,7 @@ data class FeedPost(
             "comments" to comments,
             "shares" to shares,
             "createdAt" to createdAt,
-            "likedBy" to likedBy
+            "likedBy" to (likedBy ?: emptyList<String>())
         )
     }
 }

@@ -53,6 +53,7 @@ dependencies {
     implementation(libs.firebase.crashlytics)
     implementation(libs.firebase.database)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.messaging)
     implementation(libs.firebase.storage)
     implementation(libs.googleid)
     testImplementation(libs.junit)
@@ -73,5 +74,11 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.5.0")
     implementation("com.itextpdf:itext7-core:9.7.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
+
+
+    implementation("com.facebook.android:facebook-android-sdk:latest.release")
+
+    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("com.airbnb.android:lottie-compose:6.1.0")
 
 }

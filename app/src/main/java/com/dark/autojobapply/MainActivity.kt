@@ -16,6 +16,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
+import com.dark.jobai.navigation.AppNavigation
 import com.dark.jobai.ui.theme.BackgroundDark
 import com.dark.jobai.ui.theme.JobAITheme
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -80,15 +81,15 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .padding(innerPadding)
                     ) {
-                        AppNavigation(
-                            navController = navController,
-                            googleSignInClient = googleSignInClient,
-                            googleSignInLauncher = googleSignInLauncher,
-                            googleSignInLoading = googleSignInLoading,
-                            onGoogleSignInLoadingChange = { loading ->
-                                googleSignInLoading = loading
-                            }
-                        )
+//                        AppNavigation(
+//                            navController = navController,
+//                            googleSignInClient = googleSignInClient,
+//                            googleSignInLauncher = googleSignInLauncher,
+//                            googleSignInLoading = googleSignInLoading,
+//                            onGoogleSignInLoadingChange = { loading ->
+//                                googleSignInLoading = loading
+//                            }
+//                        )
                     }
                 }
             }

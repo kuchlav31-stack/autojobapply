@@ -26,6 +26,21 @@ class RazorpayManager(
         const val PLAN_PREMIUM = "premium_monthly"
         const val PLAN_PRO = "pro_monthly"
         const val PLAN_AGENCY = "agency_monthly"
+
+        // Static references to delegate results from MainActivity
+        private var activeInstance: RazorpayManager? = null
+
+        fun onPaymentSuccess(razorpayPaymentId: String?) {
+            activeInstance?.handleSuccessResult(razorpayPaymentId)
+        }
+
+        fun onPaymentError(code: Int, response: String?) {
+            activeInstance?.handleErrorResult(code, response)
+        }
+    }
+
+    init {
+        activeInstance = this
     }
 
     /**
@@ -51,7 +66,7 @@ class RazorpayManager(
                 put("name", "AutoJobApply")
                 put("description", "$planName Plan")
                 put("currency", "INR")
-                put("amount", amount * 1)  // Amount in paise
+                put("amount", amount * 100)  // Corrected: Amount converted from Rupees to Paise (Amount * 100)
                 put("prefill", JSONObject().apply {
                     put("email", auth.currentUser?.email ?: "")
                     put("contact", "")
@@ -62,7 +77,7 @@ class RazorpayManager(
                     put("planName", planName)
                 })
                 put("theme", JSONObject().apply {
-                    put("color", "#00E676")
+                    put("color", "#0A66C2") // Matched with LinkedIn Blue Theme
                 })
             }
 
@@ -74,10 +89,16 @@ class RazorpayManager(
         }
     }
 
-    /**
-     * Payment success callback
-     */
     override fun onPaymentSuccess(razorpayPaymentId: String?) {
+        handleSuccessResult(razorpayPaymentId)
+    }
+
+    override fun onPaymentError(code: Int, response: String?) {
+        handleErrorResult(code, response)
+    }
+
+    // Success Handler (Internal/External safe entry)
+    private fun handleSuccessResult(razorpayPaymentId: String?) {
         Log.d("Razorpay", "Payment Success: $razorpayPaymentId")
 
         val userId = auth.currentUser?.uid
@@ -89,12 +110,15 @@ class RazorpayManager(
         Toast.makeText(context, "✅ Payment Successful!", Toast.LENGTH_LONG).show()
     }
 
-    /**
-     * Payment error callback
-     */
-    override fun onPaymentError(code: Int, response: String?) {
+    // Error Handler (Internal/External safe entry)
+    private fun handleErrorResult(code: Int, response: String?) {
         Log.e("Razorpay", "Payment Error: $code - $response")
-        Toast.makeText(context, "❌ Payment Failed: $response", Toast.LENGTH_LONG).show()
+        val message = when (code) {
+            Checkout.NETWORK_ERROR -> "Network error. Check your internet connection."
+            Checkout.PAYMENT_CANCELED -> "Payment cancelled."
+            else -> response ?: "Payment failed."
+        }
+        Toast.makeText(context, "❌ $message", Toast.LENGTH_LONG).show()
     }
 
     /**
