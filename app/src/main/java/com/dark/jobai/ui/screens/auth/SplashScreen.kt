@@ -6,10 +6,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.WorkOutline
-import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -39,78 +35,155 @@ fun SplashScreen(
 ) {
     val context = LocalContext.current
 
-    // --- Professional Light Theme Palette ---
-    val AppBlue = Color(0xFF0F52FF)
-    val BgLight = Color(0xFFF8FAFC)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
+    // ─────────────────────────────────────────────
+    // Light Theme — BlankLearn reference style
+    // ─────────────────────────────────────────────
+    val BackgroundTop = Color(0xFFF9FCFF)
+    val BackgroundBottom = Color(0xFFEAF3FF)
 
+    val PrimaryBlue = Color(0xFF1769FF)
+    val SoftBlue = Color(0xFFE8F0FF)
+
+    val TextDark = Color(0xFF102A5C)
+    val TextMuted = Color(0xFF7183A3)
+    val BorderColor = Color(0xFFDCE7F7)
+
+    // ─────────────────────────────────────────────
     // Animation States
-    val logoScale = remember { Animatable(0.6f) }
+    // ─────────────────────────────────────────────
+    val logoScale = remember { Animatable(0.72f) }
     val logoAlpha = remember { Animatable(0f) }
     val textAlpha = remember { Animatable(0f) }
+    val bottomAlpha = remember { Animatable(0f) }
 
-    // Infinite pulse effect for high-end feel
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
+    val infiniteTransition = rememberInfiniteTransition(
+        label = "splashAnimation"
+    )
+
+    // Very subtle breathing animation
     val pulseScale by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.05f,
+        targetValue = 1.025f,
         animationSpec = infiniteRepeatable(
-            animation = tween(1000, easing = FastOutSlowInEasing),
+            animation = tween(
+                durationMillis = 1800,
+                easing = FastOutSlowInEasing
+            ),
             repeatMode = RepeatMode.Reverse
         ),
         label = "pulseScale"
     )
 
     LaunchedEffect(key1 = true) {
-        // 1. Entrance animations
+
+        // ─────────────────────────────────────────
+        // Entrance Animations
+        // ─────────────────────────────────────────
         launch {
-            logoScale.animateTo(1.0f, tween(800, easing = FastOutSlowInEasing))
-        }
-        launch {
-            logoAlpha.animateTo(1.0f, tween(600, easing = FastOutSlowInEasing))
+            logoScale.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 800,
+                    easing = FastOutSlowInEasing
+                )
+            )
         }
 
-        delay(200)
         launch {
-            textAlpha.animateTo(1.0f, tween(500, easing = FastOutSlowInEasing))
+            logoAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 600,
+                    easing = FastOutSlowInEasing
+                )
+            )
         }
 
-        // 2. Display duration
+        delay(220)
+
+        launch {
+            textAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 550,
+                    easing = FastOutSlowInEasing
+                )
+            )
+        }
+
+        delay(250)
+
+        launch {
+            bottomAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(
+                    durationMillis = 450,
+                    easing = FastOutSlowInEasing
+                )
+            )
+        }
+
+        // ─────────────────────────────────────────
+        // Display Duration
+        // ─────────────────────────────────────────
         delay(1400)
 
-        // 3. Intelligent Routing Logic
+        // ─────────────────────────────────────────
+        // Intelligent Routing Logic
+        // UNCHANGED
+        // ─────────────────────────────────────────
         try {
-            val prefs = context.getSharedPreferences("jobai_prefs", Context.MODE_PRIVATE)
-            val hasSeenOnboarding = prefs.getBoolean("has_seen_onboarding", false)
+            val prefs = context.getSharedPreferences(
+                "jobai_prefs",
+                Context.MODE_PRIVATE
+            )
+
+            val hasSeenOnboarding = prefs.getBoolean(
+                "has_seen_onboarding",
+                false
+            )
+
             val currentUser = FirebaseAuth.getInstance().currentUser
 
             if (currentUser != null) {
+
                 // Logged in -> Check profile setup status
                 val userId = currentUser.uid
+
                 val firestoreDoc = FirebaseFirestore.getInstance()
                     .collection("users")
                     .document(userId)
                     .get()
                     .await()
 
-                val isProfileCompleted = firestoreDoc.getBoolean("isProfileCompleted") ?: true
+                val isProfileCompleted =
+                    firestoreDoc.getBoolean("isProfileCompleted") ?: true
 
                 if (isProfileCompleted) {
                     onNavigateNext(AppRoutes.MAIN)
                 } else {
                     onNavigateNext(AppRoutes.PROFILE_SETUP)
                 }
+
             } else if (!hasSeenOnboarding) {
+
                 // First time user -> Show Onboarding Explainer
-                prefs.edit().putBoolean("has_seen_onboarding", true).apply()
+                prefs.edit()
+                    .putBoolean("has_seen_onboarding", true)
+                    .apply()
+
                 onNavigateNext(AppRoutes.ONBOARDING)
+
             } else {
+
                 // Returning user, not logged in -> Login Screen
                 onNavigateNext(AppRoutes.LOGIN)
             }
+
         } catch (e: Exception) {
+
             e.printStackTrace()
+
             if (FirebaseAuth.getInstance().currentUser != null) {
                 onNavigateNext(AppRoutes.MAIN)
             } else {
@@ -119,74 +192,243 @@ fun SplashScreen(
         }
     }
 
+    // ─────────────────────────────────────────────
+    // UI
+    // ─────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    listOf(BgLight, Color(0xFFEEF2F6))
+                    colors = listOf(
+                        BackgroundTop,
+                        BackgroundTop,
+                        BackgroundBottom
+                    )
                 )
             )
             .statusBarsPadding()
-            .navigationBarsPadding(),
-        contentAlignment = Alignment.Center
+            .navigationBarsPadding()
     ) {
+
+        // ─────────────────────────────────────────
+        // Soft Decorative Background Shapes
+        // ─────────────────────────────────────────
+
+        // Top-right soft blue circle
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 70.dp, y = (-60).dp)
+                .size(220.dp)
+                .background(
+                    color = Color(0xFFE8F1FF),
+                    shape = RoundedCornerShape(110.dp)
+                )
+        )
+
+        // Bottom-left soft blue circle
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .offset(x = (-80).dp, y = 80.dp)
+                .size(250.dp)
+                .background(
+                    color = Color(0xFFE2EEFF),
+                    shape = RoundedCornerShape(125.dp)
+                )
+        )
+
         Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Glowing App Logo
-            Surface(
+
+            // ─────────────────────────────────────
+            // Top Brand Label
+            // ─────────────────────────────────────
+            Row(
                 modifier = Modifier
-                    .size(100.dp)
-                    .scale(logoScale.value * pulseScale)
-                    .alpha(logoAlpha.value)
-                    .shadow(
-                        elevation = 24.dp,
-                        shape = RoundedCornerShape(28.dp),
-                        ambientColor = Color.White.copy(alpha = 0.4f),
-                        spotColor = Color.White.copy(alpha = 0.4f)
-                    ),
-                shape = RoundedCornerShape(28.dp),
-                color = Color.White
+                    .fillMaxWidth()
+                    .padding(top = 28.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+
                 Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .background(
+                            color = PrimaryBlue,
+                            shape = RoundedCornerShape(50)
+                        )
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Text(
+                    text = "SMARTER JOB SEARCH",
+                    color = TextMuted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.6.sp,
+                    fontFamily = FontFamily.SansSerif
+                )
+            }
+
+            // ─────────────────────────────────────
+            // Center Content
+            // ─────────────────────────────────────
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+
+                // ─────────────────────────────────
+                // Logo Card
+                // ─────────────────────────────────
+                Box(
+                    modifier = Modifier
+                        .size(142.dp)
+                        .scale(logoScale.value * pulseScale)
+                        .alpha(logoAlpha.value)
+                        .shadow(
+                            elevation = 18.dp,
+                            shape = RoundedCornerShape(36.dp),
+                            ambientColor = PrimaryBlue.copy(alpha = 0.12f),
+                            spotColor = PrimaryBlue.copy(alpha = 0.18f)
+                        )
+                        .background(
+                            color = Color.White,
+                            shape = RoundedCornerShape(36.dp)
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.skills),
-                        contentDescription = "JobAI Logo",
-                        modifier = Modifier.size(46.dp)
+
+                    // Soft inner blue surface
+                    Box(
+                        modifier = Modifier
+                            .size(126.dp)
+                            .background(
+                                color = SoftBlue,
+                                shape = RoundedCornerShape(30.dp)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+
+                        Image(
+                            painter = painterResource(
+                                id = R.drawable.logo
+                            ),
+                            contentDescription = "ApplyAI Logo",
+                            modifier = Modifier.size(104.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(34.dp))
+
+                // ─────────────────────────────────
+                // Brand Name
+                // ─────────────────────────────────
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.alpha(textAlpha.value)
+                ) {
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+
+                        Text(
+                            text = "Apply",
+                            color = TextDark,
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif,
+                            letterSpacing = (-1.2).sp
+                        )
+
+                        Text(
+                            text = "AI",
+                            color = PrimaryBlue,
+                            fontSize = 38.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.SansSerif,
+                            letterSpacing = (-1.2).sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "Your career, on autopilot.",
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = FontFamily.SansSerif,
+                        textAlign = TextAlign.Center,
+                        letterSpacing = 0.1.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
-
-            // Typography
+            // ─────────────────────────────────────
+            // Bottom Loading Section
+            // ─────────────────────────────────────
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(textAlpha.value)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 30.dp)
+                    .alpha(bottomAlpha.value),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+
                 Text(
-                    text = "JobAI",
-                    color = TextDark,
-                    fontSize = 38.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = FontFamily.SansSerif,
-                    letterSpacing = (-1).sp
+                    text = "Preparing your experience...",
+                    color = TextMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    fontFamily = FontFamily.SansSerif
                 )
 
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Progress Track
+                Box(
+                    modifier = Modifier
+                        .width(110.dp)
+                        .height(3.dp)
+                        .background(
+                            color = BorderColor,
+                            shape = RoundedCornerShape(50)
+                        )
+                ) {
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(0.45f)
+                            .fillMaxHeight()
+                            .background(
+                                color = PrimaryBlue,
+                                shape = RoundedCornerShape(50)
+                            )
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(18.dp))
 
                 Text(
-                    text = "Your Autonomous AI Job Agent",
-                    color = TextMuted,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = FontFamily.SansSerif,
-                    textAlign = TextAlign.Center,
-                    letterSpacing = 0.3.sp
+                    text = "ApplyAI",
+                    color = Color(0xFF9AAAC4),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 2.sp
                 )
             }
         }
