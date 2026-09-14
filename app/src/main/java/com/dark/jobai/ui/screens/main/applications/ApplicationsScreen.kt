@@ -3,20 +3,67 @@ package com.dark.jobai.ui.screens.main.applications
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkBorder
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Send
+import androidx.compose.material.icons.filled.SmartToy
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.runtime.*
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -32,23 +79,55 @@ import com.dark.jobai.viewmodel.ApplicationsViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
+private val PageBackground = Color(0xFFF7F8FA)
+private val CardWhite = Color(0xFFFFFFFF)
+private val PrimaryBlue = Color(0xFF2563EB)
+private val PrimaryBlueSoft = Color(0xFFEFF4FF)
+private val TextMain = Color(0xFF172033)
+private val TextSecondary = Color(0xFF6B7280)
+private val TextLight = Color(0xFF9CA3AF)
+private val DividerColor = Color(0xFFE8EBF0)
+
+private val Green = Color(0xFF15803D)
+private val GreenSoft = Color(0xFFECFDF3)
+
+private val Orange = Color(0xFFB45309)
+private val OrangeSoft = Color(0xFFFFF7E8)
+
+private val Red = Color(0xFFB91C1C)
+private val RedSoft = Color(0xFFFEF2F2)
+
+private val Purple = Color(0xFF6D28D9)
+private val PurpleSoft = Color(0xFFF5F3FF)
+
+private val CardRadius = RoundedCornerShape(16.dp)
+private val SmallRadius = RoundedCornerShape(10.dp)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApplicationsScreen(
     onJobClick: (String) -> Unit = {}
 ) {
-    val applicationsViewModel: ApplicationsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+    val applicationsViewModel: ApplicationsViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel()
+
     val currentUserId = FirebaseAuth.getInstance().currentUser?.uid
 
     val applications by applicationsViewModel.applications.collectAsState()
     val isLoading by applicationsViewModel.isLoading.collectAsState()
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    var selectedApplication by remember { mutableStateOf<Application?>(null) }
+    var selectedApplication by remember {
+        mutableStateOf<Application?>(null)
+    }
 
-    // --- Saved Jobs State (Real-time Firestore sync) ---
-    var savedJobs by remember { mutableStateOf<List<Job>>(emptyList()) }
-    var isLoadingSavedJobs by remember { mutableStateOf(true) }
+    var savedJobs by remember {
+        mutableStateOf<List<Job>>(emptyList())
+    }
+
+    var isLoadingSavedJobs by remember {
+        mutableStateOf(true)
+    }
 
     LaunchedEffect(currentUserId) {
         if (currentUserId != null) {
@@ -58,10 +137,12 @@ fun ApplicationsScreen(
                 .collection("saved_jobs")
                 .addSnapshotListener { snapshot, _ ->
                     if (snapshot != null) {
-                        savedJobs = snapshot.documents.mapNotNull { doc ->
-                            doc.toObject(Job::class.java)?.copy(id = doc.id)
+                        savedJobs = snapshot.documents.mapNotNull { document ->
+                            document.toObject(Job::class.java)
+                                ?.copy(id = document.id)
                         }
                     }
+
                     isLoadingSavedJobs = false
                 }
         } else {
@@ -69,153 +150,53 @@ fun ApplicationsScreen(
         }
     }
 
-    // --- Professional Light Theme Palette ---
-    val AppBlue = Color(0xFF0F52FF)
-    val BgLight = Color(0xFFF8FAFC)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgLight)
-            .statusBarsPadding()
+            .background(PageBackground)
+            .windowInsetsPadding(WindowInsets.navigationBars)
     ) {
-        // Header
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 14.dp)
-        ) {
-            Text(
-                text = "Application Pipeline",
-                color = TextDark,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "Live delivery status & dispatched transparency",
-                color = AppBlue,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        ApplicationsTopBar()
 
-        // Modern TabRow
-        TabRow(
-            selectedTabIndex = selectedTab,
-            containerColor = SurfaceWhite,
-            contentColor = AppBlue,
-            indicator = { tabPositions ->
-                TabRowDefaults.SecondaryIndicator(
-                    modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                    color = AppBlue,
-                    height = 3.dp
-                )
-            },
-            divider = { HorizontalDivider(color = BorderSubtle) }
-        ) {
-            Tab(
-                selected = selectedTab == 0,
-                onClick = { selectedTab = 0 },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Send, null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "History (${applications.size})",
-                            fontSize = 13.sp,
-                            fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
-                },
-                selectedContentColor = AppBlue,
-                unselectedContentColor = TextMuted
-            )
-            Tab(
-                selected = selectedTab == 1,
-                onClick = { selectedTab = 1 },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Bookmark, null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "Saved (${savedJobs.size})",
-                            fontSize = 13.sp,
-                            fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Medium
-                        )
-                    }
-                },
-                selectedContentColor = AppBlue,
-                unselectedContentColor = TextMuted
-            )
-        }
+        ApplicationsTabs(
+            selectedTab = selectedTab,
+            applicationsCount = applications.size,
+            savedJobsCount = savedJobs.size,
+            onTabSelected = { selectedTab = it }
+        )
 
         when (selectedTab) {
             0 -> {
-                AppliedTab(
+                ApplicationsHistory(
                     applications = applications,
                     isLoading = isLoading,
-                    onApplicationClick = { selectedApplication = it }
+                    onApplicationClick = {
+                        selectedApplication = it
+                    }
                 )
             }
+
             1 -> {
-                // Saved Jobs Tab
-                if (isLoadingSavedJobs) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(color = AppBlue)
-                    }
-                } else if (savedJobs.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        EmptyState(
-                            icon = Icons.Default.BookmarkBorder,
-                            title = "No Saved Jobs",
-                            description = "Jobs you save from the explore screen will appear here."
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(14.dp)
-                    ) {
-                        items(savedJobs, key = { it.id }) { job ->
-                            JobCard(
-                                job = job,
-                                onClick = { onJobClick(job.id) },
-                                onEmailApply = {},
-                                onSave = {
-                                    if (currentUserId != null) {
-                                        FirebaseFirestore.getInstance()
-                                            .collection("users")
-                                            .document(currentUserId)
-                                            .collection("saved_jobs")
-                                            .document(job.id)
-                                            .delete()
-                                    }
-                                },
-                                isSaved = true,
-                                isApplied = false
-                            )
-                        }
-                        item { Spacer(modifier = Modifier.height(24.dp)) }
-                    }
-                }
+                SavedJobsContent(
+                    savedJobs = savedJobs,
+                    isLoading = isLoadingSavedJobs,
+                    currentUserId = currentUserId,
+                    onJobClick = onJobClick
+                )
             }
         }
     }
 
-    selectedApplication?.let { app ->
-        ApplicationDetailSheet(
-            application = app,
-            onDismiss = { selectedApplication = null },
-            onViewJobClick = {
-                val jobId = app.jobId
+    selectedApplication?.let { application ->
+        ApplicationDetailsSheet(
+            application = application,
+            onDismiss = {
                 selectedApplication = null
+            },
+            onViewJobClick = {
+                val jobId = application.jobId
+                selectedApplication = null
+
                 if (!jobId.isNullOrBlank()) {
                     onJobClick(jobId)
                 }
@@ -225,60 +206,185 @@ fun ApplicationsScreen(
 }
 
 @Composable
-fun AppliedTab(
+private fun ApplicationsTopBar() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardWhite)
+            .padding(
+                horizontal = 20.dp,
+                vertical = 20.dp
+            )
+    ) {
+        Text(
+            text = "Applications",
+            color = TextMain,
+            fontSize = 26.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = (-0.5).sp
+        )
+
+        Spacer(modifier = Modifier.height(5.dp))
+
+        Text(
+            text = "Track your job applications",
+            color = TextSecondary,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+private fun ApplicationsTabs(
+    selectedTab: Int,
+    applicationsCount: Int,
+    savedJobsCount: Int,
+    onTabSelected: (Int) -> Unit
+) {
+    TabRow(
+        selectedTabIndex = selectedTab,
+        containerColor = CardWhite,
+        contentColor = PrimaryBlue,
+        divider = {
+            HorizontalDivider(
+                color = DividerColor,
+                thickness = 1.dp
+            )
+        },
+        indicator = { tabPositions ->
+            TabRowDefaults.SecondaryIndicator(
+                modifier = Modifier.tabIndicatorOffset(
+                    tabPositions[selectedTab]
+                ),
+                color = PrimaryBlue,
+                height = 2.dp
+            )
+        }
+    ) {
+        Tab(
+            selected = selectedTab == 0,
+            onClick = {
+                onTabSelected(0)
+            },
+            selectedContentColor = PrimaryBlue,
+            unselectedContentColor = TextSecondary,
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Send,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(7.dp))
+
+                    Text(
+                        text = "Applied $applicationsCount",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedTab == 0) {
+                            FontWeight.Bold
+                        } else {
+                            FontWeight.Medium
+                        }
+                    )
+                }
+            }
+        )
+
+        Tab(
+            selected = selectedTab == 1,
+            onClick = {
+                onTabSelected(1)
+            },
+            selectedContentColor = PrimaryBlue,
+            unselectedContentColor = TextSecondary,
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.BookmarkBorder,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(7.dp))
+
+                    Text(
+                        text = "Saved $savedJobsCount",
+                        fontSize = 13.sp,
+                        fontWeight = if (selectedTab == 1) {
+                            FontWeight.Bold
+                        } else {
+                            FontWeight.Medium
+                        }
+                    )
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun ApplicationsHistory(
     applications: List<Application>,
     isLoading: Boolean,
     onApplicationClick: (Application) -> Unit
 ) {
-    val AppBlue = Color(0xFF0F52FF)
-    val SuccessGreen = Color(0xFF10B981)
-    val WarningOrange = Color(0xFFF59E0B)
-
-    val totalCount = applications.size
-    val openedCount = applications.count { it.openedAt > 0 || it.emailStatus.equals("Opened", ignoreCase = true) }
-    val viewedCount = applications.count { it.clickedAt > 0 || it.emailStatus.equals("Viewed", ignoreCase = true) }
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        // Counter Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            StatCard("Dispatched", totalCount.toString(), Icons.Default.Send, AppBlue, Modifier.weight(1f))
-            StatCard("Opened", openedCount.toString(), Icons.Default.Visibility, WarningOrange, Modifier.weight(1f))
-            StatCard("Reviewed", viewedCount.toString(), Icons.Default.Bolt, SuccessGreen, Modifier.weight(1f))
+    when {
+        isLoading -> {
+            LoadingContent(
+                text = "Loading applications..."
+            )
         }
 
-        when {
-            isLoading -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = AppBlue)
-                }
-            }
-            applications.isEmpty() -> {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    EmptyState(
-                        icon = Icons.Default.Description,
-                        title = "No Applications Yet",
-                        description = "Apply to jobs to track recruiter status & sent details here."
+        applications.isEmpty() -> {
+            EmptyContent(
+                icon = Icons.Default.Description,
+                title = "No applications yet",
+                description = "Your submitted applications will appear here."
+            )
+        }
+
+        else -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    horizontal = 18.dp,
+                    vertical = 18.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        text = "Recent applications",
+                        color = TextMain,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(
+                            start = 2.dp,
+                            bottom = 2.dp
+                        )
                     )
                 }
-            }
-            else -> {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    items(applications, key = { it.id }) { application ->
-                        ApplicationCard(
-                            application = application,
-                            onClick = { onApplicationClick(application) }
-                        )
-                    }
-                    item { Spacer(modifier = Modifier.height(24.dp)) }
+
+                items(
+                    items = applications,
+                    key = { it.id }
+                ) { application ->
+                    ApplicationItem(
+                        application = application,
+                        onClick = {
+                            onApplicationClick(application)
+                        }
+                    )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
             }
         }
@@ -286,444 +392,953 @@ fun AppliedTab(
 }
 
 @Composable
-fun StatCard(
-    title: String,
-    value: String,
-    icon: ImageVector,
-    color: Color,
-    modifier: Modifier = Modifier
+private fun SavedJobsContent(
+    savedJobs: List<Job>,
+    isLoading: Boolean,
+    currentUserId: String?,
+    onJobClick: (String) -> Unit
 ) {
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
+    when {
+        isLoading -> {
+            LoadingContent(
+                text = "Loading saved jobs..."
+            )
+        }
 
-    Surface(
-        modifier = modifier.shadow(4.dp, RoundedCornerShape(16.dp), ambientColor = Color.Black.copy(alpha = 0.04f)),
-        shape = RoundedCornerShape(16.dp),
-        color = SurfaceWhite,
-        border = BorderStroke(1.dp, BorderSubtle)
-    ) {
-        Column(
-            modifier = Modifier.padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center
+        savedJobs.isEmpty() -> {
+            EmptyContent(
+                icon = Icons.Default.BookmarkBorder,
+                title = "No saved jobs",
+                description = "Jobs you save from Explore will appear here."
+            )
+        }
+
+        else -> {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    horizontal = 18.dp,
+                    vertical = 18.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
+                items(
+                    items = savedJobs,
+                    key = { it.id }
+                ) { job ->
+                    JobCard(
+                        job = job,
+                        onClick = {
+                            onJobClick(job.id)
+                        },
+                        onEmailApply = {},
+                        onSave = {
+                            if (currentUserId != null) {
+                                FirebaseFirestore.getInstance()
+                                    .collection("users")
+                                    .document(currentUserId)
+                                    .collection("saved_jobs")
+                                    .document(job.id)
+                                    .delete()
+                            }
+                        },
+                        isSaved = true,
+                        isApplied = false
+                    )
+                }
+
+                item {
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
             }
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(value, color = TextDark, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(title, color = TextMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
     }
 }
 
 @Composable
-fun ApplicationCard(
+private fun ApplicationItem(
     application: Application,
     onClick: () -> Unit
 ) {
-    val AppBlue = Color(0xFF0F52FF)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
+    val applicationType = application.applicationType
 
-    val isWebForm = application.applicationType.equals("WebForm", ignoreCase = true)
-    val isAuto = application.applicationType.equals("Auto", ignoreCase = true)
+    val typeText = when {
+        applicationType.equals("WebForm", ignoreCase = true) ->
+            "Website application"
+
+        applicationType.equals("Auto", ignoreCase = true) ->
+            "AI auto-applied"
+
+        else ->
+            "Direct email"
+    }
+
+    val typeIcon = when {
+        applicationType.equals("WebForm", ignoreCase = true) ->
+            Icons.Default.Language
+
+        applicationType.equals("Auto", ignoreCase = true) ->
+            Icons.Default.SmartToy
+
+        else ->
+            Icons.Default.Email
+    }
+
+    val typeColor = when {
+        applicationType.equals("WebForm", ignoreCase = true) ->
+            Purple
+
+        applicationType.equals("Auto", ignoreCase = true) ->
+            Green
+
+        else ->
+            PrimaryBlue
+    }
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.04f))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp),
-        color = SurfaceWhite,
-        border = BorderStroke(1.dp, BorderSubtle)
+        shape = CardRadius,
+        color = CardWhite,
+        border = BorderStroke(
+            width = 1.dp,
+            color = DividerColor
+        )
     ) {
-        Column(modifier = Modifier.padding(18.dp)) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                CompanyAvatar(
+                    companyName = application.companyName
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
                         text = application.jobTitle,
-                        color = TextDark,
-                        fontSize = 16.sp,
+                        color = TextMain,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = application.companyName,
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = application.companyName,
-                        color = AppBlue,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
                 }
 
-                StatusBadge(application = application)
+                Spacer(modifier = Modifier.width(8.dp))
+
+                ApplicationStatus(
+                    application = application
+                )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Application Medium Badge
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val badgeColor = when {
-                    isWebForm -> Color(0xFF8B5CF6)
-                    isAuto -> Color(0xFF10B981)
-                    else -> Color(0xFF0EA5E9)
-                }
-                val badgeText = when {
-                    isWebForm -> "Applied via Website Portal"
-                    isAuto -> "AI Auto-Applied"
-                    else -> "Applied via Direct Email"
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(6.dp),
-                    color = badgeColor.copy(alpha = 0.1f)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = when {
-                                isWebForm -> Icons.Default.Language
-                                isAuto -> Icons.Default.SmartToy
-                                else -> Icons.Default.Email
-                            },
-                            contentDescription = null,
-                            tint = badgeColor,
-                            modifier = Modifier.size(11.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = badgeText,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = badgeColor
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider(color = BorderSubtle)
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(15.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Schedule, null, tint = TextMuted, modifier = Modifier.size(14.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = Formatters.formatDate(application.appliedAt),
-                        color = TextMuted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
+                Icon(
+                    imageVector = typeIcon,
+                    contentDescription = null,
+                    tint = typeColor,
+                    modifier = Modifier.size(14.dp)
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
 
                 Text(
-                    text = "Tap to view details →",
-                    color = AppBlue,
+                    text = typeText,
+                    color = typeColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }
-        }
-    }
-}
 
-@Composable
-fun StatusBadge(application: Application) {
-    val isOpened = application.openedAt > 0 || application.emailStatus.equals("Opened", ignoreCase = true)
-    val isViewed = application.clickedAt > 0 || application.emailStatus.equals("Viewed", ignoreCase = true)
-    val isDelivered = application.deliveredAt > 0 || application.emailStatus.equals("Delivered", ignoreCase = true)
-    val isBounced = application.bouncedAt > 0 || application.emailStatus.equals("Bounced", ignoreCase = true)
+            Spacer(modifier = Modifier.height(14.dp))
 
-    val SuccessGreen = Color(0xFF10B981)
-    val WarningOrange = Color(0xFFF59E0B)
-    val InfoBlue = Color(0xFF3B82F6)
-    val ErrorRed = Color(0xFFEF4444)
-    val TextMuted = Color(0xFF64748B)
-
-    val (icon, color, label) = when {
-        isViewed -> Triple(Icons.Default.Bolt, SuccessGreen, "Viewed")
-        isOpened -> Triple(Icons.Default.Visibility, WarningOrange, "Opened")
-        isDelivered -> Triple(Icons.Default.CheckCircle, InfoBlue, "Delivered")
-        isBounced -> Triple(Icons.Default.Warning, ErrorRed, "Bounced")
-        else -> Triple(Icons.Default.Send, TextMuted, "Sent")
-    }
-
-    Surface(
-        shape = RoundedCornerShape(8.dp),
-        color = color.copy(alpha = 0.1f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.3f))
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(13.dp))
-            Spacer(modifier = Modifier.width(5.dp))
-            Text(label, color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun ApplicationDetailSheet(
-    application: Application,
-    onDismiss: () -> Unit,
-    onViewJobClick: () -> Unit
-) {
-    val AppBlue = Color(0xFF0F52FF)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
-    val SuccessGreen = Color(0xFF10B981)
-    val WarningOrange = Color(0xFFF59E0B)
-    val InfoBlue = Color(0xFF3B82F6)
-
-    val isDelivered = application.deliveredAt > 0 || application.emailStatus.equals("Delivered", ignoreCase = true)
-    val isOpened = application.openedAt > 0 || application.emailStatus.equals("Opened", ignoreCase = true)
-    val isViewed = application.clickedAt > 0 || application.emailStatus.equals("Viewed", ignoreCase = true)
-
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SurfaceWhite,
-        contentColor = TextDark,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
-        tonalElevation = 8.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 24.dp, end = 24.dp, bottom = 36.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Application Status",
-                    color = AppBlue,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
-                )
-
-                // Button to jump straight to the original job details!
-                if (!application.jobId.isNullOrBlank()) {
-                    TextButton(onClick = onViewJobClick) {
-                        Text("View Job Post →", color = AppBlue, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            Text(
-                text = application.jobTitle,
-                color = TextDark,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = application.companyName,
-                color = AppBlue,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = BorderSubtle)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ============ TRACKING TIMELINE ============
-            Text(
-                text = "Live Tracking Timeline",
-                color = TextDark,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
+            HorizontalDivider(
+                color = DividerColor,
+                thickness = 1.dp
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            TimelineRow(
-                icon = Icons.Default.Send,
-                title = "Application Sent",
-                time = Formatters.formatDateTime(application.appliedAt),
-                color = TextMuted,
-                isCompleted = true
-            )
-
-            TimelineRow(
-                icon = Icons.Default.CheckCircle,
-                title = "Email Delivered to Recruiter",
-                time = if (isDelivered) (if (application.deliveredAt > 0) Formatters.formatDateTime(application.deliveredAt) else "Delivered to Recruiter Inbox ✓") else "Waiting for delivery...",
-                color = InfoBlue,
-                isCompleted = isDelivered
-            )
-
-            TimelineRow(
-                icon = Icons.Default.Visibility,
-                title = "Recruiter Opened Email",
-                time = if (isOpened) (if (application.openedAt > 0) Formatters.formatDateTime(application.openedAt) else "Opened by Recruiter ✓") else "Waiting for recruiter to open...",
-                color = WarningOrange,
-                isCompleted = isOpened
-            )
-
-            TimelineRow(
-                icon = Icons.Default.Bolt,
-                title = "Resume Viewed",
-                time = if (isViewed) (if (application.clickedAt > 0) Formatters.formatDateTime(application.clickedAt) else "Resume Reviewed ✓") else "Waiting for resume view...",
-                color = SuccessGreen,
-                isCompleted = isViewed
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = BorderSubtle)
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // ============ TRANSPARENCY: WHAT DETAILS WERE SENT ============
-            Text(
-                text = "AI Dispatched Transparency",
-                color = TextDark,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF8FAFC),
-                border = BorderStroke(1.dp, BorderSubtle),
-                modifier = Modifier.fillMaxWidth()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Schedule,
+                    contentDescription = null,
+                    tint = TextLight,
+                    modifier = Modifier.size(14.dp)
+                )
 
-                    if (application.applicationType == "WebForm") {
-                        // SHOW WEBSITE AUTO-FILL AUDIT LOG
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Language, null, tint = AppBlue, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Bot execution log for Company Portal:", fontSize = 12.sp, color = TextDark, fontWeight = FontWeight.Bold)
-                        }
-                        Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
-                        if (application.botAuditLog.isEmpty()) {
-                            Text("No recognizable input fields found on this specific portal.", fontSize = 11.sp, color = TextMuted)
-                        } else {
-                            application.botAuditLog.forEach { (field, value) ->
-                                Row(modifier = Modifier.padding(vertical = 2.dp)) {
-                                    Text("• $field: ", fontSize = 11.sp, color = TextMuted, fontWeight = FontWeight.SemiBold)
-                                    Text(value, fontSize = 11.sp, color = SuccessGreen, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                Text(
+                    text = Formatters.formatDate(application.appliedAt),
+                    color = TextSecondary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
+                )
 
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(if (application.botClickedSubmit) Icons.Default.CheckCircle else Icons.Default.Warning, null, tint = if (application.botClickedSubmit) SuccessGreen else WarningOrange, modifier = Modifier.size(14.dp))
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(if (application.botClickedSubmit) "Submit Button Detected & Clicked" else "Form Filled (Manual Submit needed)", fontSize = 11.sp, color = if (application.botClickedSubmit) SuccessGreen else WarningOrange, fontWeight = FontWeight.Bold)
-                        }
+                Spacer(modifier = Modifier.weight(1f))
 
-                    } else {
-                        // SHOW EMAIL LOG (Purana wala)
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Person, null, tint = AppBlue, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Applicant: ${application.applicantName}", fontSize = 12.sp, color = TextDark, fontWeight = FontWeight.SemiBold)
-                        }
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Email, null, tint = AppBlue, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Target Email: ${application.toEmail}", fontSize = 12.sp, color = TextDark)
-                        }
-                    }
-                }
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "View details",
+                    tint = TextLight,
+                    modifier = Modifier.size(17.dp)
+                )
             }
         }
     }
 }
 
 @Composable
-fun TimelineRow(
+private fun CompanyAvatar(
+    companyName: String
+) {
+    val initial = companyName
+        .trim()
+        .firstOrNull()
+        ?.uppercaseChar()
+        ?.toString()
+        ?: "C"
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = PrimaryBlueSoft
+    ) {
+        Box(
+            modifier = Modifier.size(44.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = initial,
+                color = PrimaryBlue,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+private fun ApplicationStatus(
+    application: Application
+) {
+    val isViewed = application.clickedAt > 0 ||
+            application.emailStatus.equals(
+                "Viewed",
+                ignoreCase = true
+            )
+
+    val isOpened = application.openedAt > 0 ||
+            application.emailStatus.equals(
+                "Opened",
+                ignoreCase = true
+            )
+
+    val isDelivered = application.deliveredAt > 0 ||
+            application.emailStatus.equals(
+                "Delivered",
+                ignoreCase = true
+            )
+
+    val isBounced = application.bouncedAt > 0 ||
+            application.emailStatus.equals(
+                "Bounced",
+                ignoreCase = true
+            )
+
+    val status = when {
+        isViewed -> StatusData(
+            label = "Viewed",
+            icon = Icons.Default.Visibility,
+            color = Green,
+            background = GreenSoft
+        )
+
+        isOpened -> StatusData(
+            label = "Opened",
+            icon = Icons.Default.Visibility,
+            color = Orange,
+            background = OrangeSoft
+        )
+
+        isBounced -> StatusData(
+            label = "Bounced",
+            icon = Icons.Default.ErrorOutline,
+            color = Red,
+            background = RedSoft
+        )
+
+        isDelivered -> StatusData(
+            label = "Delivered",
+            icon = Icons.Default.CheckCircle,
+            color = PrimaryBlue,
+            background = PrimaryBlueSoft
+        )
+
+        else -> StatusData(
+            label = "Sent",
+            icon = Icons.Default.Send,
+            color = TextSecondary,
+            background = Color(0xFFF3F4F6)
+        )
+    }
+
+    Surface(
+        shape = SmallRadius,
+        color = status.background
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = 8.dp,
+                vertical = 6.dp
+            ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = status.icon,
+                contentDescription = null,
+                tint = status.color,
+                modifier = Modifier.size(13.dp)
+            )
+
+            Spacer(modifier = Modifier.width(5.dp))
+
+            Text(
+                text = status.label,
+                color = status.color,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+private data class StatusData(
+    val label: String,
+    val icon: ImageVector,
+    val color: Color,
+    val background: Color
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ApplicationDetailsSheet(
+    application: Application,
+    onDismiss: () -> Unit,
+    onViewJobClick: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(
+        skipPartiallyExpanded = true
+    )
+
+    val isDelivered = application.deliveredAt > 0 ||
+            application.emailStatus.equals(
+                "Delivered",
+                ignoreCase = true
+            )
+
+    val isOpened = application.openedAt > 0 ||
+            application.emailStatus.equals(
+                "Opened",
+                ignoreCase = true
+            )
+
+    val isViewed = application.clickedAt > 0 ||
+            application.emailStatus.equals(
+                "Viewed",
+                ignoreCase = true
+            )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        containerColor = CardWhite,
+        contentColor = TextMain,
+        tonalElevation = 0.dp,
+        shape = RoundedCornerShape(
+            topStart = 24.dp,
+            topEnd = 24.dp
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    start = 20.dp,
+                    end = 20.dp,
+                    bottom = 30.dp
+                )
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Application details",
+                        color = TextMain,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "Application activity and delivery status",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                }
+
+                Surface(
+                    modifier = Modifier.clickable(onClick = onDismiss),
+                    shape = CircleShape,
+                    color = Color(0xFFF3F4F6)
+                ) {
+                    Box(
+                        modifier = Modifier.size(36.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = CardRadius,
+                color = PageBackground
+            ) {
+                Row(
+                    modifier = Modifier.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CompanyAvatar(
+                        companyName = application.companyName
+                    )
+
+                    Spacer(modifier = Modifier.width(12.dp))
+
+                    Column(
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(
+                            text = application.jobTitle,
+                            color = TextMain,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        Text(
+                            text = application.companyName,
+                            color = TextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            if (!application.jobId.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(12.dp))
+
+                OutlinedButton(
+                    onClick = onViewJobClick,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = SmallRadius,
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = PrimaryBlue
+                    ),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = PrimaryBlue
+                    )
+                ) {
+                    Text(
+                        text = "View original job",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.width(7.dp))
+
+                    Icon(
+                        imageVector = Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            DetailHeading(
+                title = "Application timeline"
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = CardRadius,
+                color = PageBackground
+            ) {
+                Column(
+                    modifier = Modifier.padding(
+                        horizontal = 15.dp,
+                        vertical = 8.dp
+                    )
+                ) {
+                    TimelineItem(
+                        icon = Icons.Default.Send,
+                        title = "Application sent",
+                        value = Formatters.formatDateTime(
+                            application.appliedAt
+                        ),
+                        isCompleted = true,
+                        color = PrimaryBlue,
+                        isLast = false
+                    )
+
+                    TimelineItem(
+                        icon = Icons.Default.CheckCircle,
+                        title = "Email delivered",
+                        value = if (isDelivered) {
+                            if (application.deliveredAt > 0) {
+                                Formatters.formatDateTime(
+                                    application.deliveredAt
+                                )
+                            } else {
+                                "Delivered to recruiter"
+                            }
+                        } else {
+                            "Waiting for delivery"
+                        },
+                        isCompleted = isDelivered,
+                        color = PrimaryBlue,
+                        isLast = false
+                    )
+
+                    TimelineItem(
+                        icon = Icons.Default.Visibility,
+                        title = "Recruiter opened email",
+                        value = if (isOpened) {
+                            if (application.openedAt > 0) {
+                                Formatters.formatDateTime(
+                                    application.openedAt
+                                )
+                            } else {
+                                "Opened by recruiter"
+                            }
+                        } else {
+                            "Waiting for recruiter"
+                        },
+                        isCompleted = isOpened,
+                        color = Orange,
+                        isLast = false
+                    )
+
+                    TimelineItem(
+                        icon = Icons.Default.Check,
+                        title = "Resume viewed",
+                        value = if (isViewed) {
+                            if (application.clickedAt > 0) {
+                                Formatters.formatDateTime(
+                                    application.clickedAt
+                                )
+                            } else {
+                                "Resume viewed"
+                            }
+                        } else {
+                            "Waiting for resume view"
+                        },
+                        isCompleted = isViewed,
+                        color = Green,
+                        isLast = true
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            DetailHeading(
+                title = "Dispatch information"
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            DispatchInformation(
+                application = application
+            )
+        }
+    }
+}
+
+@Composable
+private fun DetailHeading(
+    title: String
+) {
+    Text(
+        text = title,
+        color = TextMain,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold
+    )
+}
+
+@Composable
+private fun TimelineItem(
     icon: ImageVector,
     title: String,
-    time: String,
+    value: String,
+    isCompleted: Boolean,
     color: Color,
-    isCompleted: Boolean
+    isLast: Boolean
 ) {
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
-
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
     ) {
-        Surface(
-            modifier = Modifier.size(38.dp),
-            shape = RoundedCornerShape(12.dp),
-            color = if (isCompleted) color.copy(alpha = 0.12f) else Color(0xFFF1F5F9),
-            border = BorderStroke(1.dp, if (isCompleted) color.copy(alpha = 0.4f) else BorderSubtle)
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (isCompleted) color else TextMuted.copy(alpha = 0.4f),
-                    modifier = Modifier.size(18.dp)
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = if (isCompleted) {
+                    color.copy(alpha = 0.12f)
+                } else {
+                    Color(0xFFE5E7EB)
+                }
+            ) {
+                Box(
+                    modifier = Modifier.size(36.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = if (isCompleted) {
+                            color
+                        } else {
+                            TextLight
+                        },
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+            }
+
+            if (!isLast) {
+                Box(
+                    modifier = Modifier
+                        .width(1.dp)
+                        .height(25.dp)
+                        .background(
+                            if (isCompleted) {
+                                color.copy(alpha = 0.25f)
+                            } else {
+                                DividerColor
+                            }
+                        )
                 )
             }
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
-        Column {
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(top = 2.dp)
+        ) {
             Text(
                 text = title,
-                color = if (isCompleted) TextDark else TextMuted,
+                color = if (isCompleted) {
+                    TextMain
+                } else {
+                    TextSecondary
+                },
                 fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.SemiBold
             )
-            Spacer(modifier = Modifier.height(2.dp))
+
+            Spacer(modifier = Modifier.height(4.dp))
+
             Text(
-                text = time,
-                color = if (isCompleted) color else TextMuted.copy(alpha = 0.6f),
+                text = value,
+                color = if (isCompleted) {
+                    color
+                } else {
+                    TextLight
+                },
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
+
+            if (!isLast) {
+                Spacer(modifier = Modifier.height(18.dp))
+            }
         }
+    }
+}
+
+@Composable
+private fun DispatchInformation(
+    application: Application
+) {
+    val isWebForm = application.applicationType.equals(
+        "WebForm",
+        ignoreCase = true
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = CardRadius,
+        color = PageBackground
+    ) {
+        Column(
+            modifier = Modifier.padding(15.dp)
+        ) {
+            if (isWebForm) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = null,
+                        tint = Purple,
+                        modifier = Modifier.size(17.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = "Website form activity",
+                        color = TextMain,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                if (application.botAuditLog.isEmpty()) {
+                    Text(
+                        text = "No recognizable fields were found on this portal.",
+                        color = TextSecondary,
+                        fontSize = 12.sp
+                    )
+                } else {
+                    application.botAuditLog.forEach { (field, value) ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Text(
+                                text = field,
+                                color = TextSecondary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Text(
+                                text = value,
+                                color = TextMain,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                HorizontalDivider(
+                    color = DividerColor
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (application.botClickedSubmit) {
+                            Icons.Default.CheckCircle
+                        } else {
+                            Icons.Default.ErrorOutline
+                        },
+                        contentDescription = null,
+                        tint = if (application.botClickedSubmit) {
+                            Green
+                        } else {
+                            Orange
+                        },
+                        modifier = Modifier.size(16.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = if (application.botClickedSubmit) {
+                            "Submit button clicked"
+                        } else {
+                            "Form filled, manual submission may be required"
+                        },
+                        color = if (application.botClickedSubmit) {
+                            Green
+                        } else {
+                            Orange
+                        },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            } else {
+                DispatchInfoRow(
+                    icon = Icons.Default.Person,
+                    label = "Applicant",
+                    value = application.applicantName
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                DispatchInfoRow(
+                    icon = Icons.Default.Email,
+                    label = "Target email",
+                    value = application.toEmail
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DispatchInfoRow(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = PrimaryBlue,
+            modifier = Modifier.size(16.dp)
+        )
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Column {
+            Text(
+                text = label,
+                color = TextLight,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+
+            Spacer(modifier = Modifier.height(3.dp))
+
+            Text(
+                text = value,
+                color = TextMain,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun LoadingContent(
+    text: String
+) {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(
+                color = PrimaryBlue,
+                strokeWidth = 2.5.dp,
+                modifier = Modifier.size(30.dp)
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Text(
+                text = text,
+                color = TextSecondary,
+                fontSize = 12.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyContent(
+    icon: ImageVector,
+    title: String,
+    description: String
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 30.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        EmptyState(
+            icon = icon,
+            title = title,
+            description = description
+        )
     }
 }

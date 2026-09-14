@@ -1,6 +1,7 @@
 package com.dark.jobai.ui.screens.main.profile
 
 import android.widget.Toast
+import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -11,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -19,11 +21,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,6 +37,23 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+
+// ====================================================================
+// EXACT COLORS FROM APPLYAI SCREENSHOT
+// ====================================================================
+private val ApplyAiBlue = Color(0xFF0066FF)            // Signature Blue Button & Logo
+private val ApplyAiBlueSoft = Color(0xFFEBF3FF)        // Light Blue Container / Selected Tab
+private val ApplyAiCanvas = Color(0xFFF6F9FE)          // Soft Sky Background
+private val ApplyAiSurface = Color(0xFFFFFFFF)         // Clean Pure White Card
+private val ApplyAiGreen = Color(0xFF00C781)           // Concentric Ring Checkmark Green
+private val ApplyAiGreenSoft = Color(0xFFE7F9F2)       // Mint Soft Halo
+private val ApplyAiCoral = Color(0xFFFF5274)           // Notification Pink/Coral
+private val ApplyAiCoralSoft = Color(0xFFFFF0F3)
+private val ApplyAiAmber = Color(0xFFFFAB00)           // Bell Notification Amber
+private val ApplyAiAmberSoft = Color(0xFFFFF7E6)
+private val ApplyAiTextDark = Color(0xFF161C30)        // Deep Title Navy
+private val ApplyAiTextSub = Color(0xFF6B7897)         // Supporting Gray Text
+private val ApplyAiBorder = Color(0xFFE3EDFB)          // Subtle Line Border
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -57,14 +77,8 @@ fun ProfileScreen(
     var isVerificationSent by remember { mutableStateOf(false) }
     var autoApplyEnabled by remember { mutableStateOf(false) }
 
-    // --- Professional Light Theme Palette ---
-    val AppBlue = Color(0xFF0F52FF)
-    val BgLight = Color(0xFFF8FAFC)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
-    val ErrorRed = Color(0xFFEF4444)
+    // Segmented Navigation: 0 = Overview, 1 = ATS Resume, 2 = AI Auto-Apply
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(user?.uid) {
         if (user != null) {
@@ -106,7 +120,7 @@ fun ProfileScreen(
             .addOnSuccessListener {
                 Toast.makeText(
                     context,
-                    if (enabled) "✅ Auto-Apply enabled!" else "Auto-Apply disabled",
+                    if (enabled) "⚡ ApplyAI Auto-Apply active!" else "Auto-Apply paused",
                     Toast.LENGTH_SHORT
                 ).show()
             }
@@ -114,49 +128,51 @@ fun ProfileScreen(
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
-        containerColor = BgLight,
+        containerColor = ApplyAiCanvas,
         topBar = {
-            CenterAlignedTopAppBar(
+            TopAppBar(
                 title = {
-                    Text(
-                        "Account Profile",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = (-0.5).sp
-                        ),
-                        color = TextDark
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Apply",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = ApplyAiTextDark
+                        )
+                        Text(
+                            "AI",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black,
+                            color = ApplyAiBlue
+                        )
+                    }
                 },
                 actions = {
                     IconButton(
                         onClick = onSettingsClick,
                         modifier = Modifier
-                            .padding(end = 8.dp)
-                            .background(SurfaceWhite, CircleShape)
-                            .border(1.dp, BorderSubtle, CircleShape)
+                            .padding(end = 12.dp)
                             .size(38.dp)
+                            .clip(CircleShape)
+                            .background(ApplyAiSurface)
+                            .border(1.dp, ApplyAiBorder, CircleShape)
                     ) {
-                        Icon(Icons.Default.Settings, "Settings", tint = TextDark, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.Settings, "Settings", tint = ApplyAiTextSub, modifier = Modifier.size(18.dp))
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                    containerColor = BgLight,
-                    titleContentColor = TextDark
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = ApplyAiCanvas
                 )
             )
         }
     ) { paddingValues ->
         if (isLoading) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppBlue, strokeWidth = 3.dp)
+                CircularProgressIndicator(color = ApplyAiBlue, strokeWidth = 3.dp)
             }
         } else if (user == null) {
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.PersonOff, null, tint = TextMuted, modifier = Modifier.size(64.dp))
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Profile not found", color = TextMuted, style = MaterialTheme.typography.bodyLarge)
-                }
+                Text("Profile not found", color = ApplyAiTextSub, fontSize = 15.sp)
             }
         } else {
             Column(
@@ -164,113 +180,56 @@ fun ProfileScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // 1. Gorgeous Profile Header Card
-                ProfileHeaderCard(user = user!!, isEmailVerified = isEmailVerified, onEditClick = onEditProfileClick)
-
-                // 2. Interactive Stats Section
-                ProfileStatsSection(user = user!!)
-
-                // 3. Email Verification Banner (If needed)
-                if (!isEmailVerified) {
-                    EmailVerificationCard(
-                        isVerificationSent = isVerificationSent,
-                        onSendVerification = { sendVerificationEmail() },
-                        onRefresh = {
-                            scope.launch {
-                                try {
-                                    auth.currentUser?.reload()?.await()
-                                    isEmailVerified = auth.currentUser?.isEmailVerified ?: false
-                                    Toast.makeText(
-                                        context,
-                                        if (isEmailVerified) "✅ Email verified!" else "Not verified yet",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                } catch (e: Exception) {}
-                            }
-                        }
-                    )
-                }
-
-                // 4. Subscription Status with Expiry Countdown / Renewal Alert
-                if (user!!.isPremiumActive()) {
-                    ActiveSubscriptionCard(user = user!!, onRenewClick = onUpgradeClick)
-                } else {
-                    HighConversionJobBanner(onUpgradeClick = onUpgradeClick)
-                }
-
-                // 5. Quick Actions Card
-                QuickActionsCard(
-                    isPremium = user!!.isPremiumActive(),
-                    isEmailVerified = isEmailVerified,
-                    autoApplyEnabled = autoApplyEnabled,
-                    onEmailTemplateClick = onEmailTemplateClick,
-                    onEditProfileClick = onEditProfileClick,
-                    onAutoApplyToggle = { toggleAutoApply(it) }
-                )
-
-                // 6. Professional Summary
-                ProfileSectionCard(title = "Professional Summary", icon = Icons.Default.Description) {
-                    Text(
-                        text = user!!.bio.ifEmpty { "Add a bio to highlight your professional background and career goals." },
-                        fontSize = 13.sp,
-                        color = if (user!!.bio.isEmpty()) TextMuted else TextDark,
-                        lineHeight = 20.sp
-                    )
-                }
-
-                // 7. Skills & Expertise
-                if (user!!.skills.isNotEmpty()) {
-                    ProfileSectionCard(title = "Skills & Expertise", icon = Icons.Default.AutoAwesome) {
-                        SkillsGrid(skills = user!!.skills)
-                    }
-                }
-
-                // 8. Contact Information
-                ProfileSectionCard(title = "Contact Information", icon = Icons.Default.Contacts) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        InfoRow(Icons.Default.Email, "Email Address", user!!.email)
-                        if (user!!.phone.isNotEmpty()) {
-                            InfoRow(Icons.Default.Phone, "Phone Number", user!!.phone)
-                        }
-                        if (user!!.location.isNotEmpty()) {
-                            InfoRow(Icons.Default.LocationOn, "Current Location", user!!.location)
-                        }
-                    }
-                }
-
-                // 9. Master Profile Details (CTC, Notice Period, Education)
-                ProfileSectionCard(title = "Master ATS Profile Details", icon = Icons.Default.Badge) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        if (user!!.preferredRole.isNotEmpty()) {
-                            InfoRow(Icons.Default.TrackChanges, "Target Role", user!!.preferredRole)
-                        }
-                        if (user!!.experienceYears.isNotEmpty()) {
-                            InfoRow(Icons.Default.Timeline, "Experience", "${user!!.experienceYears} Years")
-                        }
-                        if (user!!.currentCompany.isNotEmpty()) {
-                            InfoRow(Icons.Default.Business, "Current Company", user!!.currentCompany)
-                        }
-                        if (user!!.highestDegree.isNotEmpty()) {
-                            InfoRow(Icons.Default.School, "Education", user!!.highestDegree)
-                        }
-                        if (user!!.currentCtc.isNotEmpty()) {
-                            InfoRow(Icons.Default.Payments, "Current CTC", user!!.currentCtc)
-                        }
-                        if (user!!.expectedCtc.isNotEmpty()) {
-                            InfoRow(Icons.Default.Savings, "Expected CTC", user!!.expectedCtc)
-                        }
-                        if (user!!.noticePeriod.isNotEmpty()) {
-                            InfoRow(Icons.Default.Alarm, "Notice Period", user!!.noticePeriod)
-                        }
-                    }
-                }
-
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // 10. Logout Button
+                // 1. CONCENTRIC RING HERO AVATAR (Screen 10 "You're All Set" style)
+                ApplyAiConcentricHero(
+                    user = user!!,
+                    isEmailVerified = isEmailVerified
+                )
+
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // 2. SEGMENTED TABS (Screen 8 "Job Type / Work Mode" style)
+                ApplyAiSegmentedTabs(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // 3. TAB CONTENT VIEWS (Replaces endless box scroll!)
+                AnimatedContent(
+                    targetState = selectedTab,
+                    label = "TabContent"
+                ) { tab ->
+                    when (tab) {
+                        0 -> OverviewTabView(
+                            user = user!!,
+                            isEmailVerified = isEmailVerified,
+                            onUpgradeClick = onUpgradeClick,
+                            onSendVerification = { sendVerificationEmail() }
+                        )
+                        1 -> AtsResumeTabView(
+                            user = user!!,
+                            onEditClick = onEditProfileClick
+                        )
+                        2 -> AutoPilotTabView(
+                            user = user!!,
+                            isEmailVerified = isEmailVerified,
+                            autoApplyEnabled = autoApplyEnabled,
+                            onAutoApplyToggle = { toggleAutoApply(it) },
+                            onEmailTemplateClick = onEmailTemplateClick
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // 4. LOGOUT BUTTON (Clean pill style)
                 Button(
                     onClick = {
                         auth.signOut()
@@ -278,18 +237,18 @@ fun ProfileScreen(
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(52.dp),
+                        .height(48.dp),
+                    shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SurfaceWhite,
-                        contentColor = ErrorRed
+                        containerColor = ApplyAiSurface,
+                        contentColor = Color(0xFFEF4444)
                     ),
-                    shape = RoundedCornerShape(14.dp),
-                    border = BorderStroke(1.dp, ErrorRed.copy(alpha = 0.3f)),
+                    border = BorderStroke(1.dp, Color(0xFFFFD5D5)),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Sign Out", fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Icon(Icons.AutoMirrored.Filled.ExitToApp, null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Sign Out", fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
 
                 Spacer(modifier = Modifier.height(40.dp))
@@ -299,573 +258,547 @@ fun ProfileScreen(
 }
 
 // ====================================================================
-// 1. PROFILE HEADER CARD
+// 1. CONCENTRIC RING HERO AVATAR (Screen 10 Style)
 // ====================================================================
 
 @Composable
-fun ProfileHeaderCard(user: User, isEmailVerified: Boolean, onEditClick: () -> Unit) {
-    val AppBlue = Color(0xFF0F52FF)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
-    val GoldPremium = Color(0xFFD97706)
-    val InfoBlue = Color(0xFF3B82F6)
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(8.dp, RoundedCornerShape(24.dp), ambientColor = AppBlue.copy(alpha = 0.08f)),
-        shape = RoundedCornerShape(24.dp),
-        color = SurfaceWhite,
-        border = BorderStroke(1.dp, BorderSubtle)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp)
+fun ApplyAiConcentricHero(user: User, isEmailVerified: Boolean) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        // Outer concentric halo
+        Box(
+            modifier = Modifier
+                .size(108.dp)
+                .clip(CircleShape)
+                .background(if (isEmailVerified) ApplyAiGreenSoft else ApplyAiBlueSoft)
+                .padding(8.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+            // Mid ring
+            Box(
+                modifier = Modifier
+                    .size(92.dp)
+                    .clip(CircleShape)
+                    .background(ApplyAiSurface)
+                    .padding(3.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(76.dp)
-                        .clip(CircleShape)
-                        .background(
-                            Brush.sweepGradient(
-                                if (user.isPremiumActive())
-                                    listOf(GoldPremium, Color(0xFFFBBF24), GoldPremium)
-                                else
-                                    listOf(AppBlue, Color(0xFF60A5FA), AppBlue)
-                            )
-                        )
-                        .padding(2.5.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceWhite),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (user.profileImageUrl.isNotEmpty()) {
-                        AsyncImage(
-                            model = user.profileImageUrl,
-                            contentDescription = "Profile",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(CircleShape)
-                        )
-                    } else {
+                // Profile image core
+                if (user.profileImageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = user.profileImageUrl,
+                        contentDescription = "Avatar",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                    )
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape)
+                            .background(ApplyAiBlueSoft),
+                        contentAlignment = Alignment.Center
+                    ) {
                         Text(
-                            user.fullName.take(1).uppercase(),
-                            color = if (user.isPremiumActive()) GoldPremium else AppBlue,
-                            fontSize = 28.sp,
+                            text = user.fullName.take(1).uppercase(),
+                            color = ApplyAiBlue,
+                            fontSize = 32.sp,
                             fontWeight = FontWeight.Black
                         )
                     }
                 }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            user.fullName.ifEmpty { "Guest User" },
-                            color = TextDark,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        if (isEmailVerified) {
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Icon(
-                                Icons.Default.Verified,
-                                contentDescription = "Verified",
-                                tint = InfoBlue,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-
-                    if (user.headline.isNotEmpty()) {
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            user.headline,
-                            color = AppBlue,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(4.dp))
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.LocationOn, null, tint = TextMuted, modifier = Modifier.size(12.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            user.location.ifEmpty { "Location not set" },
-                            color = TextMuted,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            HorizontalDivider(color = BorderSubtle)
-            Spacer(modifier = Modifier.height(14.dp))
-
-            OutlinedButton(
-                onClick = onEditClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(42.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, BorderSubtle),
-                colors = ButtonDefaults.outlinedButtonColors(containerColor = Color(0xFFF8FAFC))
-            ) {
-                Icon(Icons.Default.Edit, null, tint = TextDark, modifier = Modifier.size(16.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Edit Master Profile & Resume", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             }
         }
-    }
-}
 
-// ====================================================================
-// 2. PROFILE STATS SECTION
-// ====================================================================
+        Spacer(modifier = Modifier.height(10.dp))
 
-@Composable
-fun ProfileStatsSection(user: User) {
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val BorderSubtle = Color(0xFFE2E8F0)
-    val AppBlue = Color(0xFF0F52FF)
-
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.03f)),
-        shape = RoundedCornerShape(20.dp),
-        color = SurfaceWhite,
-        border = BorderStroke(1.dp, BorderSubtle)
-    ) {
-        Row(
-            modifier = Modifier.padding(vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            StatBox(user.emailsSent.toString(), "Applications", Icons.Default.Send, AppBlue)
-            VerticalDivider(color = BorderSubtle, modifier = Modifier.height(28.dp))
-            StatBox(user.getRemainingEmails().toString(), "Remaining", Icons.Default.Mail, AppBlue)
-            VerticalDivider(color = BorderSubtle, modifier = Modifier.height(28.dp))
-            StatBox(user.skills.size.toString(), "Skills", Icons.Default.Bolt, AppBlue)
-        }
-    }
-}
-
-@Composable
-fun StatBox(value: String, label: String, icon: ImageVector, color: Color) {
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(value, color = TextDark, fontSize = 18.sp, fontWeight = FontWeight.Black)
-        }
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(label, color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-    }
-}
-
-// ====================================================================
-// 3. EMAIL VERIFICATION CARD
-// ====================================================================
-
-@Composable
-fun EmailVerificationCard(
-    isVerificationSent: Boolean,
-    onSendVerification: () -> Unit,
-    onRefresh: () -> Unit
-) {
-    val WarningOrange = Color(0xFFF59E0B)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = WarningOrange.copy(alpha = 0.08f),
-        border = BorderStroke(1.dp, WarningOrange.copy(alpha = 0.5f))
-    ) {
-        Column(modifier = Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Error, null, tint = WarningOrange, modifier = Modifier.size(20.dp))
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    "Email Verification Required",
-                    color = TextDark,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Spacer(modifier = Modifier.height(6.dp))
             Text(
-                "Please verify your email address to enable AI Auto-Apply features.",
-                color = TextMuted,
-                fontSize = 12.sp
+                text = user.fullName.ifEmpty { "Candidate" },
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = ApplyAiTextDark
             )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onSendVerification,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = WarningOrange, contentColor = Color.White),
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = !isVerificationSent,
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
-                ) {
-                    Text(if (isVerificationSent) "Verification Sent" else "Verify Email", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-                OutlinedButton(
-                    onClick = onRefresh,
-                    modifier = Modifier.weight(1f).height(40.dp),
-                    border = BorderStroke(1.dp, WarningOrange),
-                    colors = ButtonDefaults.outlinedButtonColors(containerColor = SurfaceWhite, contentColor = WarningOrange),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("I've Verified", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-    }
-}
-
-// ====================================================================
-// 4. ACTIVE SUBSCRIPTION WITH EXPIRY COUNTDOWN
-// ====================================================================
-
-@Composable
-fun ActiveSubscriptionCard(user: User, onRenewClick: () -> Unit) {
-    val GoldPremium = Color(0xFFD97706)
-    val TextDark = Color(0xFF0F172A)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-
-    // Calculate remaining days if premiumUntil exists
-    val currentTime = System.currentTimeMillis()
-    val expiryTime = user.premiumExpiry
-    val diffDays = if (expiryTime > currentTime) ((expiryTime - currentTime) / (1000 * 60 * 60 * 24)).toInt() else 0
-
-    val isExpiringSoon = diffDays in 0..3
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        color = SurfaceWhite,
-        border = BorderStroke(1.dp, if (isExpiringSoon) Color(0xFFEF4444) else GoldPremium.copy(alpha = 0.5f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        if (isExpiringSoon)
-                            listOf(Color(0xFFFEF2F2), Color(0xFFFEE2E2))
-                        else
-                            listOf(Color(0xFFFFFAEB), Color(0xFFFEF3C7))
-                    )
-                )
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background((if (isExpiringSoon) Color(0xFFEF4444) else GoldPremium).copy(alpha = 0.15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
+            if (isEmailVerified) {
+                Spacer(modifier = Modifier.width(6.dp))
                 Icon(
-                    imageVector = if (isExpiringSoon) Icons.Default.Warning else Icons.Default.Verified,
-                    contentDescription = null,
-                    tint = if (isExpiringSoon) Color(0xFFEF4444) else GoldPremium,
-                    modifier = Modifier.size(22.dp)
+                    Icons.Default.CheckCircle,
+                    contentDescription = "Verified",
+                    tint = ApplyAiGreen,
+                    modifier = Modifier.size(18.dp)
                 )
             }
-            Spacer(modifier = Modifier.width(14.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = if (isExpiringSoon) "⚠️ Plan Expiring in $diffDays Days!" else "Active Plan: ${user.premiumPlan.uppercase()} ⭐",
-                    color = TextDark,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = if (isExpiringSoon) "Renew now to avoid service interruption." else "Unlimited AI Auto-Apply & Priority Queue enabled.",
-                    color = if (isExpiringSoon) Color(0xFF991B1B) else GoldPremium,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+        }
 
-            if (isExpiringSoon) {
-                Button(
-                    onClick = onRenewClick,
-                    modifier = Modifier.height(36.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
-                    shape = RoundedCornerShape(8.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
-                ) {
-                    Text("Renew", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.White)
-                }
-            }
+        Spacer(modifier = Modifier.height(2.dp))
+
+        Text(
+            text = user.headline.ifEmpty { "Job Seeker" },
+            fontSize = 13.sp,
+            color = ApplyAiBlue,
+            fontWeight = FontWeight.SemiBold
+        )
+
+        if (user.location.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(
+                text = user.location,
+                fontSize = 12.sp,
+                color = ApplyAiTextSub
+            )
         }
     }
 }
 
 // ====================================================================
-// 4b. HIGH CONVERSION UPGRADE BANNER
+// 2. SEGMENTED TABS (Screen 8 Capsule Button Style)
 // ====================================================================
 
 @Composable
-fun HighConversionJobBanner(onUpgradeClick: () -> Unit) {
-    val AppBlue = Color(0xFF0F52FF)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
+fun ApplyAiSegmentedTabs(selectedTab: Int, onTabSelected: (Int) -> Unit) {
+    val tabs = listOf("Overview", "ATS Resume", "AI Pilot")
 
-    Surface(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = AppBlue.copy(alpha = 0.1f))
-            .clickable(onClick = onUpgradeClick),
-        shape = RoundedCornerShape(20.dp),
-        color = SurfaceWhite,
-        border = BorderStroke(1.5.dp, AppBlue.copy(alpha = 0.4f))
+            .clip(RoundedCornerShape(50))
+            .background(ApplyAiSurface)
+            .border(1.dp, ApplyAiBorder, RoundedCornerShape(50))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(Color(0xFFEFF6FF), Color(0xFFDBEAFE))
-                    )
-                )
-                .padding(18.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        tabs.forEachIndexed { index, title ->
+            val isSelected = selectedTab == index
             Box(
                 modifier = Modifier
-                    .size(42.dp)
-                    .background(AppBlue.copy(alpha = 0.15f), CircleShape),
+                    .weight(1f)
+                    .height(38.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(if (isSelected) ApplyAiBlue else Color.Transparent)
+                    .clickable { onTabSelected(index) },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.WorkspacePremium, null, tint = AppBlue, modifier = Modifier.size(22.dp))
-            }
-
-            Spacer(modifier = Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Land Interviews 5x Faster 🚀",
-                    color = TextDark,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    "Unlock AI Auto-Apply & 500+ monthly applications today!",
-                    color = TextMuted,
-                    fontSize = 11.sp
+                    text = title,
+                    color = if (isSelected) Color.White else ApplyAiTextSub,
+                    fontSize = 12.sp,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
             }
-
-            Icon(Icons.Default.ChevronRight, null, tint = AppBlue, modifier = Modifier.size(20.dp))
         }
     }
 }
 
 // ====================================================================
-// 5. QUICK ACTIONS CARD
+// 3A. OVERVIEW TAB: FLOATING NOTIFICATIONS & SKILLS (Screen 4 Style)
 // ====================================================================
 
 @Composable
-fun QuickActionsCard(
-    isPremium: Boolean,
+fun OverviewTabView(
+    user: User,
     isEmailVerified: Boolean,
-    autoApplyEnabled: Boolean,
-    onEmailTemplateClick: () -> Unit,
-    onEditProfileClick: () -> Unit,
-    onAutoApplyToggle: (Boolean) -> Unit
+    onUpgradeClick: () -> Unit,
+    onSendVerification: () -> Unit
 ) {
-    val AppBlue = Color(0xFF0F52FF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-    val BorderSubtle = Color(0xFFE2E8F0)
-
-    ProfileSectionCard(title = "Quick Actions", icon = Icons.Default.Bolt) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        // Verification prompt if not verified
+        if (!isEmailVerified) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF8FAFC))
-                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Default.SmartToy, null, tint = AppBlue, modifier = Modifier.size(18.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column {
-                        Text("AI Auto-Apply", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            if (!isPremium) "Requires Premium Plan" else if (!isEmailVerified) "Verify Email Required" else "Auto-apply to matching jobs",
-                            color = TextMuted,
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-                Switch(
-                    checked = autoApplyEnabled,
-                    onCheckedChange = onAutoApplyToggle,
-                    enabled = isPremium && isEmailVerified,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color.White,
-                        checkedTrackColor = AppBlue,
-                        uncheckedThumbColor = TextMuted,
-                        uncheckedTrackColor = BorderSubtle,
-                        uncheckedBorderColor = Color.Transparent
-                    )
-                )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFF8FAFC))
-                    .border(1.dp, BorderSubtle, RoundedCornerShape(12.dp))
-                    .clickable(onClick = onEmailTemplateClick)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(ApplyAiAmberSoft)
+                    .border(1.dp, ApplyAiAmber.copy(alpha = 0.3f), RoundedCornerShape(18.dp))
                     .padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(Icons.Default.MailOutline, null, tint = AppBlue, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(12.dp))
-                Text("Email Templates", color = TextDark, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Spacer(modifier = Modifier.weight(1f))
-                Icon(Icons.Default.ChevronRight, null, tint = TextMuted, modifier = Modifier.size(16.dp))
+                Icon(Icons.Default.ErrorOutline, null, tint = ApplyAiAmber, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(10.dp))
+                Text("Verify your email to start auto-applying", fontSize = 12.sp, color = ApplyAiTextDark, modifier = Modifier.weight(1f))
+                TextButton(onClick = onSendVerification) {
+                    Text("Verify", color = ApplyAiBlue, fontWeight = FontWeight.Bold)
+                }
             }
         }
-    }
-}
 
-// ====================================================================
-// SHARED SECTION CARD
-// ====================================================================
+        // Screen 4 Style: Floating Updates Cards
+        ApplyAiNotificationPill(
+            icon = Icons.Default.Send,
+            iconColor = ApplyAiBlue,
+            iconBg = ApplyAiBlueSoft,
+            title = "${user.emailsSent} applications submitted",
+            subtitle = "Tracked in real-time"
+        )
 
-@Composable
-fun ProfileSectionCard(
-    title: String,
-    icon: ImageVector,
-    content: @Composable () -> Unit
-) {
-    val AppBlue = Color(0xFF0F52FF)
-    val SurfaceWhite = Color(0xFFFFFFFF)
-    val TextDark = Color(0xFF0F172A)
-    val BorderSubtle = Color(0xFFE2E8F0)
+        ApplyAiNotificationPill(
+            icon = Icons.Default.CalendarToday,
+            iconColor = ApplyAiCoral,
+            iconBg = ApplyAiCoralSoft,
+            title = "${user.getRemainingEmails()} applications remaining",
+            subtitle = "Current monthly cycle"
+        )
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 8.dp)
-        ) {
-            Icon(icon, null, tint = AppBlue, modifier = Modifier.size(16.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                title,
-                color = TextDark,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
+        ApplyAiNotificationPill(
+            icon = Icons.Default.NotificationsNone,
+            iconColor = ApplyAiAmber,
+            iconBg = ApplyAiAmberSoft,
+            title = "${user.skills.size} matched skills configured",
+            subtitle = "Ready for job matching"
+        )
+
+        // Screen 5 Style: Autopilot Upgrade Banner
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(4.dp, RoundedCornerShape(20.dp), ambientColor = Color.Black.copy(alpha = 0.03f)),
+                .clickable(onClick = onUpgradeClick),
             shape = RoundedCornerShape(20.dp),
-            color = SurfaceWhite,
-            border = BorderStroke(1.dp, BorderSubtle)
+            color = ApplyAiBlue
         ) {
-            Column(modifier = Modifier.padding(18.dp)) {
-                content()
+            Row(
+                modifier = Modifier.padding(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        if (user.isPremiumActive()) "Plan: ${user.premiumPlan.uppercase()} ⭐" else "Your Career, On Autopilot",
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        if (user.isPremiumActive()) "Priority application queue enabled" else "Less effort. More opportunities.",
+                        color = Color.White.copy(alpha = 0.8f),
+                        fontSize = 11.sp
+                    )
+                }
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.2f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+
+        // Bio Section
+        if (user.bio.isNotEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(ApplyAiSurface)
+                    .border(1.dp, ApplyAiBorder, RoundedCornerShape(18.dp))
+                    .padding(16.dp)
+            ) {
+                Text("Candidate Summary", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(user.bio, fontSize = 12.sp, color = ApplyAiTextSub, lineHeight = 19.sp)
             }
         }
     }
 }
 
+// Floating notification pill (Screen 4 exact layout)
 @Composable
-fun InfoRow(icon: ImageVector, label: String, value: String) {
-    val AppBlue = Color(0xFF0F52FF)
-    val TextDark = Color(0xFF0F172A)
-    val TextMuted = Color(0xFF64748B)
-
+fun ApplyAiNotificationPill(
+    icon: ImageVector,
+    iconColor: Color,
+    iconBg: Color,
+    title: String,
+    subtitle: String
+) {
     Row(
-        modifier = Modifier.padding(vertical = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(4.dp, RoundedCornerShape(18.dp), ambientColor = ApplyAiBlue.copy(alpha = 0.03f))
+            .clip(RoundedCornerShape(18.dp))
+            .background(ApplyAiSurface)
+            .border(1.dp, ApplyAiBorder, RoundedCornerShape(18.dp))
+            .padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Surface(
-            modifier = Modifier.size(34.dp),
-            shape = RoundedCornerShape(10.dp),
-            color = Color(0xFFF1F5F9)
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(iconBg),
+            contentAlignment = Alignment.Center
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = AppBlue, modifier = Modifier.size(16.dp))
-            }
+            Icon(icon, null, tint = iconColor, modifier = Modifier.size(18.dp))
         }
-        Spacer(modifier = Modifier.width(12.dp))
-        Column {
-            Text(label, color = TextMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-            Spacer(modifier = Modifier.height(1.dp))
-            Text(
-                value,
-                color = TextDark,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold
-            )
+        Spacer(modifier = Modifier.width(14.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+            Text(subtitle, fontSize = 11.sp, color = ApplyAiTextSub)
         }
     }
 }
+
+// ====================================================================
+// 3B. ATS RESUME TAB: RESUME CARD & PREFERENCES (Screen 8 & 9 Style)
+// ====================================================================
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SkillsGrid(skills: List<String>) {
-    val AppBlue = Color(0xFF0F52FF)
-
-    FlowRow(
+fun AtsResumeTabView(
+    user: User,
+    onEditClick: () -> Unit
+) {
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        skills.forEach { skill ->
+        // Screen 9 Style: Uploaded Resume Sheet Card
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(ApplyAiSurface)
+                .border(1.dp, ApplyAiBorder, RoundedCornerShape(18.dp))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(AppBlue.copy(alpha = 0.08f))
-                    .border(1.dp, AppBlue.copy(alpha = 0.2f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 5.dp)
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFFFFECEF)),
+                contentAlignment = Alignment.Center
             ) {
+                Icon(Icons.Default.PictureAsPdf, null, tint = ApplyAiCoral, modifier = Modifier.size(22.dp))
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    skill,
-                    color = AppBlue,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold
+                    text = "${user.fullName.ifEmpty { "My" }}_Resume.pdf",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ApplyAiTextDark
+                )
+                Text("Master ATS Profile Active", fontSize = 11.sp, color = ApplyAiGreen, fontWeight = FontWeight.Medium)
+            }
+            Icon(Icons.Default.CheckCircle, null, tint = ApplyAiGreen, modifier = Modifier.size(20.dp))
+        }
+
+        // Screen 8 Style: Preferred Roles & Skills Tags
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(ApplyAiSurface)
+                .border(1.dp, ApplyAiBorder, RoundedCornerShape(20.dp))
+                .padding(16.dp)
+        ) {
+            Text("Preferred Roles & Skills", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+            Spacer(modifier = Modifier.height(10.dp))
+
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (user.preferredRole.isNotEmpty()) {
+                    ApplyAiRemovableTag(user.preferredRole)
+                }
+                user.skills.forEach { skill ->
+                    ApplyAiRemovableTag(skill)
+                }
+            }
+        }
+
+        // Screen 8 Style: ATS Specifications Grid
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(ApplyAiSurface)
+                .border(1.dp, ApplyAiBorder, RoundedCornerShape(20.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Job Matching Attributes", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+            Spacer(modifier = Modifier.height(2.dp))
+
+            ApplyAiDetailItem("Experience", "${user.experienceYears.ifEmpty { "0" }} Years")
+            ApplyAiDetailItem("Current Company", user.currentCompany.ifEmpty { "Not specified" })
+            ApplyAiDetailItem("Highest Degree", user.highestDegree.ifEmpty { "Not specified" })
+            ApplyAiDetailItem("Current Package", user.currentCtc.ifEmpty { "Not specified" })
+            ApplyAiDetailItem("Expected Package", user.expectedCtc.ifEmpty { "Not specified" })
+            ApplyAiDetailItem("Notice Period", user.noticePeriod.ifEmpty { "Immediate" })
+            ApplyAiDetailItem("Email", user.email)
+            if (user.phone.isNotEmpty()) ApplyAiDetailItem("Phone", user.phone)
+        }
+
+        // Screen 8 Style Blue "Next / Edit" button
+        Button(
+            onClick = onEditClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ApplyAiBlue)
+        ) {
+            Text("Edit Preferences & Resume", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(16.dp))
+        }
+    }
+}
+
+// Removable/Capsule style chip from Screen 8
+@Composable
+fun ApplyAiRemovableTag(text: String) {
+    Row(
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(ApplyAiBlueSoft)
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(text, fontSize = 12.sp, color = ApplyAiBlue, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+fun ApplyAiDetailItem(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, fontSize = 12.sp, color = ApplyAiTextSub)
+        Text(value, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+    }
+}
+
+// ====================================================================
+// 3C. AI PILOT TAB: AUTO-APPLY DOCUMENT (Screen 3 Style)
+// ====================================================================
+
+@Composable
+fun AutoPilotTabView(
+    user: User,
+    isEmailVerified: Boolean,
+    autoApplyEnabled: Boolean,
+    onAutoApplyToggle: (Boolean) -> Unit,
+    onEmailTemplateClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Screen 3 Style: Interactive "Auto Apply for You" Card
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(8.dp, RoundedCornerShape(22.dp), ambientColor = ApplyAiBlue.copy(alpha = 0.06f))
+                .clip(RoundedCornerShape(22.dp))
+                .background(ApplyAiSurface)
+                .border(1.dp, ApplyAiBorder, RoundedCornerShape(22.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(54.dp)
+                    .clip(CircleShape)
+                    .background(if (autoApplyEnabled) ApplyAiGreenSoft else ApplyAiBlueSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (autoApplyEnabled) Icons.Default.CheckCircle else Icons.Default.Send,
+                    contentDescription = null,
+                    tint = if (autoApplyEnabled) ApplyAiGreen else ApplyAiBlue,
+                    modifier = Modifier.size(28.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text("Auto Apply for You", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "Sit back while ApplyAI automatically applies to the best matching jobs for your profile.",
+                fontSize = 12.sp,
+                color = ApplyAiTextSub,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Large Apply Pill / Switch Toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(ApplyAiCanvas)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        if (autoApplyEnabled) "Autopilot Active" else "Autopilot Paused",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = ApplyAiTextDark
+                    )
+                    Text(
+                        when {
+                            !user.isPremiumActive() -> "Requires Membership"
+                            !isEmailVerified -> "Verify Email Required"
+                            else -> "Running background applications"
+                        },
+                        fontSize = 11.sp,
+                        color = ApplyAiTextSub
+                    )
+                }
+
+                Switch(
+                    checked = autoApplyEnabled,
+                    onCheckedChange = onAutoApplyToggle,
+                    enabled = user.isPremiumActive() && isEmailVerified,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color.White,
+                        checkedTrackColor = ApplyAiBlue,
+                        uncheckedTrackColor = ApplyAiBorder
+                    )
+                )
+            }
+        }
+
+        // Email Templates Button Card
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(ApplyAiSurface)
+                .border(1.dp, ApplyAiBorder, RoundedCornerShape(18.dp))
+                .clickable(onClick = onEmailTemplateClick)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(ApplyAiBlueSoft),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.MailOutline, null, tint = ApplyAiBlue, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(14.dp))
+            Text("Customize Email Pitch Template", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ApplyAiTextDark)
+            Spacer(modifier = Modifier.weight(1f))
+            Icon(Icons.Default.ChevronRight, null, tint = ApplyAiTextSub, modifier = Modifier.size(18.dp))
         }
     }
 }

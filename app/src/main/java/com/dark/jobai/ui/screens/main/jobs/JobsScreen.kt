@@ -230,17 +230,17 @@ fun JobsScreen(
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Filters Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterOption("All", workTypeFilter == "All") { jobsViewModel.updateWorkTypeFilter("All") }
-                    FilterOption("Remote", workTypeFilter == "Remote") { jobsViewModel.updateWorkTypeFilter("Remote") }
-                    FilterOption("Hybrid", workTypeFilter == "Hybrid") { jobsViewModel.updateWorkTypeFilter("Hybrid") }
-                    FilterOption("Direct Apply", showEmailOnly) { jobsViewModel.toggleEmailOnly(!showEmailOnly) }
-                }
+//                Row(
+//                    modifier = Modifier
+//                        .fillMaxWidth()
+//                        .horizontalScroll(rememberScrollState()),
+//                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+//                ) {
+//                    FilterOption("All", workTypeFilter == "All") { jobsViewModel.updateWorkTypeFilter("All") }
+//                    FilterOption("Remote", workTypeFilter == "Remote") { jobsViewModel.updateWorkTypeFilter("Remote") }
+//                    FilterOption("Hybrid", workTypeFilter == "Hybrid") { jobsViewModel.updateWorkTypeFilter("Hybrid") }
+//                    FilterOption("Direct Apply", showEmailOnly) { jobsViewModel.toggleEmailOnly(!showEmailOnly) }
+//                }
 
                 Spacer(modifier = Modifier.height(4.dp))
             }
